@@ -180,7 +180,6 @@ implicit none
       integer :: n = -1
       integer :: lb = 1
       integer :: ub = 0
-      integer :: c = -1
       integer :: jmax = -1
       integer :: storinc = 1
       integer :: stork
@@ -188,6 +187,13 @@ implicit none
       private
       procedure, public :: allocate => b_allocate
       procedure, public :: deallocate => b_deallocate
+      
+      procedure, public :: resize => b_resize
+      
+      procedure :: append_b => b_append_b
+      procedure :: append_l0 => b_append_l0
+      procedure :: append_l1 => b_append_l1
+      generic, public :: append => append_b, append_l0, append_l1
    
       procedure, public :: getsize => b_getsize
       procedure, public :: getlb => b_getlb
@@ -310,7 +316,7 @@ contains
       
    end subroutine 
 
-   _PURE_ recursive subroutine allocate_core(this,lb,ub,si)
+   _PURE_ subroutine allocate_core(this,lb,ub,si)
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: lb, ub, si
             
@@ -322,12 +328,10 @@ contains
          this%storinc = 1
          this%stork = lb
          allocate( this%a(0:(this%n-1)/l) )
-         this%c = size(this%a) * l
          this%jmax = ubound( this%a, 1 )
       else
          this%n = 0 
          allocate( this%a(1) )
-         this%c = l
          this%jmax = -1
       end if
       
@@ -343,6 +347,87 @@ contains
       this%ub = 0
    end subroutine 
    
+   
+   
+   _PURE_ subroutine b_resize(this,lb,ub,keep)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: lb, ub
+      logical, intent(in) :: keep
+      optional :: keep
+      
+      integer :: n, si, newcap
+      logical :: keep___
+      integer(ik), allocatable :: atmp(:)
+      
+      keep___ = .true. ; if (present(keep)) keep___ = keep
+      
+      n = ub - lb + 1
+      if (n > size(this%a) * l) then
+         newcap = 2 * size(this%a) * l
+         do while (n > newcap)
+            newcap = 2*newcap
+         end do
+         allocate( atmp(0:(newcap-1)/l) )
+         if (keep___) atmp(0:this%jmax) = this%a(0:this%jmax)
+         call move_alloc( atmp, this%a )
+      end if
+      this%n = n
+      this%lb = lb
+      this%ub = ub
+      this%stork = merge( lb, -ub, this%storinc > 0 )
+      this%jmax = (this%n-1) / l   
+   end subroutine
+            
+   _PURE_ subroutine b_append_b(this,that)
+      class(bitfield_t), intent(inout) :: this
+      type(bitfield_t), intent(in) :: that
+      
+      integer :: ub
+            
+      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_setrange0(): reversed bitfield" 
+
+      ub = this%ub
+      call b_resize( this, (this%lb), this%ub+that%n, .true. )
+      call b_replace( this, ub+1, this%n, 1, that )
+   end subroutine
+         
+   _PURE_ subroutine b_append_l0(this,v)
+      class(bitfield_t), intent(inout) :: this
+      logical, intent(in) :: v
+            
+      if (this%storinc < 0) error stop "b_setrange0(): reversed bitfield" 
+
+      call b_resize( this, (this%lb), this%ub+1, .true. )
+      call b_set0( this, this%n, v )
+   end subroutine
+   
+   _PURE_ subroutine b_append_l1(this,v)
+      class(bitfield_t), intent(inout) :: this
+      logical, intent(in) :: v(:)
+                  
+      integer :: ub
+
+      if (this%storinc < 0) error stop "b_setrange0(): reversed bitfield" 
+
+      ub = this%ub
+      call b_resize( this, (this%lb), this%ub+size(v), .true. )
+      call b_setrange1( this, ub+1, this%n, 1, v )
+   end subroutine
+
+   _PURE_ subroutine b_drop(this,k)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: k
+                  
+      this%n = this%n - k
+      if (this%n <= 0) then
+         this%n = 0
+         this%ub = this%lb - 1
+      else
+         this%ub = this%ub - k
+      end if
+      this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
+      this%jmax = (this%n-1) / l
+   end subroutine
 
 
    integer _PURE_ function b_getsize(this)
