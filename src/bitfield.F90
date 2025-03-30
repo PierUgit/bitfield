@@ -180,6 +180,8 @@ implicit none
       integer :: n = -1
       integer :: lb = 1
       integer :: ub = 0
+      integer :: c = -1
+      integer :: jmax = -1
       integer :: storinc = 1
       integer :: stork
    contains
@@ -296,10 +298,15 @@ contains
          this%storinc = 1
          this%stork = lb
          allocate( this%a(0:(this%n-1)/l) )
+         this%c = size(this%a) * l
+         this%jmax = ubound( this%a, 1 )
       else
          this%n = 0 
-         allocate( this%a(0) )
+         allocate( this%a(1) )
+         this%c = l
+         this%jmax = -1
       end if
+      
    end subroutine 
 
    _PURE_ subroutine b_allocate3(this,lb,ub,si)
@@ -991,7 +998,7 @@ contains
       call mvbits( this%a(j2), 0, ii2+1, a2, 0 )
       v = a1 == a2
       if (.not.v) return
-      do j = 1, size(this%a) - 1
+      do j = 0, this%jmax - 1
          v = v .and. this%a(j) == that%a(j)
          if (.not.v) return
       end do
@@ -1013,7 +1020,7 @@ contains
       call mvbits( this%a(j2), 0, ii2+1, a2, 0 )
       v = a1 /= a2
       if (v) return
-      do j = 1, size(this%a) - 1
+      do j = 0, this%jmax - 1
          v = v .or. this%a(j) /= that%a(j)
          if (v) return
       end do
