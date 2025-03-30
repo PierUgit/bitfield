@@ -186,9 +186,7 @@ implicit none
       integer :: stork
    contains
       private
-      procedure :: allocate1 => b_allocate1
-      procedure :: allocate2 => b_allocate2
-      generic, public :: allocate => allocate1, allocate2
+      procedure, public :: allocate => b_allocate
       procedure, public :: deallocate => b_deallocate
    
       procedure, public :: getsize => b_getsize
@@ -279,16 +277,42 @@ contains
       stat = stat .and. shiftr(101,1) == 50 .and. shiftl(101,1) == 202
    end function
    
-   _PURE_ subroutine b_allocate1(this,n)
+   _PURE_ subroutine b_allocate(this,n,lb,ub,mold,source)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: n
+      integer, intent(in) :: n, lb, ub
+      type(bitfield_t), intent(in) :: mold, source
+      optional :: n, lb, ub, mold, source
       
-      call b_allocate2(this,1,n)
+      integer :: lb___, ub___, si___
+            
+      if (allocated(this%a)) error stop "bitfield is already allocated"
+      
+      if (present(n).or.present(ub)) then
+         if (present(n)) then
+            lb___ = 1
+            ub___ = n
+         else
+            lb___ = lb
+            ub___ = ub
+         end if
+         si___ = 1
+      else if (present(mold)) then
+         lb___ = mold%lb
+         ub___ = mold%ub
+         si___ = mold%storinc
+      else if (present(source)) then
+         lb___ = source%lb
+         ub___ = source%ub
+         si___ = source%storinc
+      end if
+      call allocate_core( this, lb___, ub___, 1 )
+      if (present(source)) this%a(:) = source%a(0:source%jmax)
+      
    end subroutine 
 
-   _PURE_ subroutine b_allocate2(this,lb,ub)
+   _PURE_ recursive subroutine allocate_core(this,lb,ub,si)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: lb, ub
+      integer, intent(in) :: lb, ub, si
             
       if (allocated(this%a)) error stop "bitfield is already allocated"
       if (ub >= lb) then
@@ -307,15 +331,6 @@ contains
          this%jmax = -1
       end if
       
-   end subroutine 
-
-   _PURE_ subroutine b_allocate3(this,lb,ub,si)
-      class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: lb, ub, si
-            
-      call b_allocate2(this,lb,ub)
-      this%storinc = si
-      this%stork = merge( lb, -ub, si > 0 )
    end subroutine 
 
    _PURE_ subroutine b_deallocate(this)
@@ -377,7 +392,7 @@ contains
       type(bitfield_t), intent(inout) :: that
       
       if (allocated(this%a) .and. this%getsize() /= that%getsize()) call b_deallocate(this)
-      if (.not.allocated(this%a)) call b_allocate2(this,that%getlb(),that%getub())
+      if (.not.allocated(this%a)) call allocate_core(this,that%getlb(),that%getub(),1)
       this%storinc = that%storinc 
       this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
       this%a(:) = that%a(:)
@@ -500,7 +515,7 @@ contains
       logical, allocatable, intent(in) :: v(:)
       
       if (allocated(this%a) .and. this%getsize() /= size(v)) call b_deallocate(this)
-      if (.not.allocated(this%a)) call b_allocate2(this,lbound(v,1),ubound(v,1))
+      if (.not.allocated(this%a)) call allocate_core(this,lbound(v,1),ubound(v,1),1)
       call b_setall1(this,v)
    end subroutine 
 
@@ -697,11 +712,11 @@ contains
          
       n = (istop-istart)/inc + 1
       if (n <= 0) then
-         call b_allocate1(that,0)
+         call allocate_core(that,1,0,1)
          return
       end if
       
-      call b_allocate1(that,n)
+      call allocate_core(that,1,n,1)
       call indeces(this,istart,jstart,iistart)
       call indeces(this,istop ,jstop ,iistop)
       if (inc == 1) then
@@ -749,11 +764,11 @@ contains
          
       n = (istart-istop) + 1
       if (n <= 0) then
-         call b_allocate1(that,0)
+         call allocate_core(that,1,0,1)
          return
       end if
       
-      call b_allocate3(that,1,n,-1)
+      call allocate_core(that,1,n,-1)
       call indeces(this,istart,jstart,iistart)
       call indeces(this,istop ,jstop ,iistop)
       if (jstart == jstop) then
@@ -933,7 +948,7 @@ contains
       type(bitfield_t), intent(in) :: this
       type(bitfield_t) :: b
             
-      call b_allocate1(b,this%n)
+      call allocate_core(b,1,this%n,this%storinc)
       b%a(:) = not( this%a )
    end function
    
@@ -944,7 +959,7 @@ contains
       if (this%storinc * that%storinc < 0) &
          error stop "b_and(): the input bitfields don't have the same storage order" 
 
-      call b_allocate3(b,1,this%n,this%storinc)
+      call allocate_core(b,1,this%n,this%storinc)
       b%a(:) = iand( this%a, that%a )
    end function
    
@@ -955,7 +970,7 @@ contains
       if (this%storinc * that%storinc < 0) &
          error stop "b_or(): the input bitfields don't have the same storage order" 
 
-      call b_allocate3(b,1,this%n,this%storinc)
+      call allocate_core(b,1,this%n,this%storinc)
       b%a(:) = ior( this%a, that%a )
    end function
    
@@ -966,7 +981,7 @@ contains
       if (this%storinc * that%storinc < 0) &
          error stop "b_eqv(): the input bitfields don't have the same storage order" 
 
-      call b_allocate3(b,1,this%n,this%storinc)
+      call allocate_core(b,1,this%n,this%storinc)
       b%a(:) = ieor( this%a, that%a )
       b%a(:) = not(b%a)
    end function
@@ -978,7 +993,7 @@ contains
       if (this%storinc * that%storinc < 0) &
          error stop "b_neqv(): the input bitfields don't have the same storage order" 
 
-      call b_allocate3(b,1,this%n,this%storinc)
+      call allocate_core(b,1,this%n,this%storinc)
       b%a(:) = ieor( this%a, that%a )
    end function
    

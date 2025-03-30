@@ -28,7 +28,7 @@ write(*,*) "PASSED"
 
 write(*,"(A)",advance="no") "bitfield tests 2..."
 
-call bi%allocate(-10,60)
+call bi%allocate(lb=-10,ub=60)
 call bi%set(-10,10,1,.true.)
 call bi%set(60,11,-1,.false.)
 if (.not.bi%fget(0)) error stop "a"
