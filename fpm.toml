@@ -1,0 +1,21 @@
+name = "bitfield"
+description = "Implementation of a 1D bit array in Fortran"
+version = "0.1.0"
+#categories = ["xxxx"]
+#keywords = ["mmap", "memory", "mapped", "files"]
+license = "GPL-3.0-only"
+author = "Pierre Hugonnet"
+maintainer = "Pierre Hugonnet"
+copyright = "Copyright 2025, Pierre Hugonnet"
+homepage = "https://github.com/PierUgit/bitfield"
+[build]
+auto-executables = true
+auto-tests = true
+auto-examples = true
+module-naming = true
+[install]
+library = false
+[fortran]
+implicit-typing = false
+implicit-external = false
+source-form = "free"
