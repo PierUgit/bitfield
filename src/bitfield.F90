@@ -28,23 +28,29 @@
 !
 ! call b%deallocate()
 !
+! bool = b%allocated()
+!     logical :: bool
+!
 ! n  = b%getsize()
+! c  = b%getcapa()
 ! lb = b%getlb()
 ! ub = b%getub() 
 ! call b%setlb(lb)
 ! call b%setub(ub)
-!     integer :: n, lb, ub
+!     integer :: n, c, lb, ub
+! call b%set_dynamic_capacity(strategy)
+!     integer :: strategy ! BITFIELD_GROWONLY, BITFIELD_GROWSHRINK
+!
+! call b%resize(lb,ub,keep)
+!     integer :: lb, ub
+!     logical :: keep
+!
+! call b%recap(capacity,keep)
+!     integer :: capacity
+!     logical :: keep
 !
 ! c = b                         ! efficient
 !     type(bitfield_t) :: b, c
-! 
-! call b%set(bool)              ! efficient if bool is a scalar
-! call b%set(pos,bool)          ! not efficient
-! call b%set(from,to,inc,bool)  ! efficient if bool is a scalar and |inc|==1
-!     logical :: bool[(:)]
-!     integer :: pos, from, top, inc
-!     *Note:* b must always be allocated beforehand
-!
 ! b = bool                      ! efficient
 !     type(bitfield_t) :: b
 !     logical :: bool
@@ -52,6 +58,17 @@
 !     type(bitfield_t) :: b
 !     logical, allocatable :: bool(:)
 !     Note: allocation on assignement can occur
+! bool = b                      ! not efficient
+!     type(bitfield_t) :: b
+!     logical, allocatable :: bool(:)
+!     *Note:* works only for an allocatable LHS; allocation on assignement can occur
+!
+! call b%set(bool)              ! efficient if bool is a scalar
+! call b%set(pos,bool)          ! not efficient
+! call b%set(from,to,inc,bool)  ! efficient if bool is a scalar and |inc|==1
+!     logical :: bool[(:)]
+!     integer :: pos, from, top, inc
+!     *Note:* b must always be allocated beforehand
 !
 ! call b%get(pos,bool)          ! not efficient
 !     logical :: bool           
@@ -61,6 +78,14 @@
 !     integer :: pos, frompos, topos
 !     *Note:* bool(:) must be allocated beforehand
 !
+! call b%append(c)
+! call b%append(bool)
+!     type(bitfield_t) :: c
+!     logical :: bool[(:)]
+!
+! call b%drop(k)
+!     integer :: k
+!
 ! bool = b%fget(pos)            ! not efficient
 !     logical :: bool
 ! bool = b%fget()               ! not efficient
@@ -68,11 +93,6 @@
 !     logical :: bool(:)
 !     integer :: pos, from, top, inc
 !     *Note:* bool(:) must be allocated beforehand
-!
-! bool = b                      ! not efficient
-!     type(bitfield_t) :: b
-!     logical, allocatable :: bool(:)
-!     *Note:* works only for an allocatable LHS; allocation on assignement can occur
 !
 ! call b%extract(from,to,inc,c)     ! efficient if inc==1
 ! c = b%fextract(from,to,inc)       ! efficient if inc==1
