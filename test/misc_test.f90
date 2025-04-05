@@ -80,6 +80,9 @@ call ci%allocate( source=bi )
 if (ci /= bi) error stop "d5"
 call bi%append( ci )
 if (bi%count() /= 2400) error stop "d6"
+call bi%set_dynamic_capacity(BITFIELD_GROWSHRINK)
+call bi%resize(lb=-200,ub=-1)
+if (bi%count() /= 100) error stop "d7"
 call bi%deallocate()
 call ci%deallocate()
 deallocate( li )
