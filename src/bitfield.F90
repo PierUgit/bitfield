@@ -165,6 +165,7 @@ implicit none
    public :: assignment(=), operator(==), operator(/=)
    public :: operator(.not.), operator(.and.), operator(.or.)
    public :: operator(.eqv.), operator(.neqv.)
+   public :: BITFIELD_GROWONLY, BITFIELD_GROWSHRINK
 
    integer, parameter :: ik = selected_int_kind(r=18)
    integer, parameter :: l = bit_size(0_ik)
@@ -173,6 +174,8 @@ implicit none
    integer, parameter :: minbatch = 10
    integer(ik), parameter :: zeros = 0
    integer(ik), parameter :: ones = not(zeros)
+   integer, parameter :: BITFIELD_GROWONLY = 0
+   integer, parameter :: BITFIELD_GROWSHRINK = 1
 
    type :: bitfield_t
       private
@@ -183,17 +186,22 @@ implicit none
       integer :: jmax = -1
       integer :: storinc = 1
       integer :: stork
+      integer :: strat = BITFIELD_GROWONLY
    contains
       private
       procedure, public :: allocate => b_allocate
       procedure, public :: deallocate => b_deallocate
       
       procedure, public :: resize => b_resize
+      procedure, public :: recap => b_recap
+      procedure, public :: set_dynamic_capacity => b_set_dynamic_capacity
       
       procedure :: append_b => b_append_b
       procedure :: append_l0 => b_append_l0
       procedure :: append_l1 => b_append_l1
       generic, public :: append => append_b, append_l0, append_l1
+      
+      procedure, public :: drop => b_drop
    
       procedure, public :: getsize => b_getsize
       procedure, public :: getlb => b_getlb
@@ -283,11 +291,11 @@ contains
       stat = stat .and. shiftr(101,1) == 50 .and. shiftl(101,1) == 202
    end function
    
-   _PURE_ subroutine b_allocate(this,n,lb,ub,mold,source)
+   _PURE_ subroutine b_allocate(this,n,lb,ub,mold,source,capacity)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: n, lb, ub
+      integer, intent(in) :: n, lb, ub, capacity
       type(bitfield_t), intent(in) :: mold, source
-      optional :: n, lb, ub, mold, source
+      optional :: n, lb, ub, mold, source, capacity
       
       integer :: lb___, ub___, si___
             
@@ -312,7 +320,8 @@ contains
          si___ = source%storinc
       end if
       call allocate_core( this, lb___, ub___, 1 )
-      if (present(source)) this%a(:) = source%a(0:source%jmax)
+      if (present(capacity)) call b_recap( this, capacity )
+      if (present(source)) this%a(0:source%jmax) = source%a(0:source%jmax)
       
    end subroutine 
 
@@ -347,6 +356,12 @@ contains
       this%ub = 0
    end subroutine 
    
+   _PURE_ subroutine b_set_dynamic_capacity(this,strat)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: strat
+      
+      this%strat = strat
+   end subroutine
    
    
    _PURE_ subroutine b_resize(this,lb,ub,keep)
@@ -356,20 +371,22 @@ contains
       optional :: keep
       
       integer :: n, si, newcap
-      logical :: keep___
-      integer(ik), allocatable :: atmp(:)
-      
-      keep___ = .true. ; if (present(keep)) keep___ = keep
-      
+
+      if (this%storinc < 0) error stop "b_resize(): reversed bitfield" 
+
       n = ub - lb + 1
       if (n > size(this%a) * l) then
          newcap = 2 * size(this%a) * l
          do while (n > newcap)
             newcap = 2*newcap
          end do
-         allocate( atmp(0:(newcap-1)/l) )
-         if (keep___) atmp(0:this%jmax) = this%a(0:this%jmax)
-         call move_alloc( atmp, this%a )
+         call b_recap( this, newcap, keep )
+      else if (3*n <= size(this%a) * l .and. this%strat == BITFIELD_GROWSHRINK) then
+         newcap = size(this%a) * l / 2
+         do while (3*n <= newcap)
+            newcap = newcap / 2
+         end do
+         call b_recap( this, newcap, keep )
       end if
       this%n = n
       this%lb = lb
@@ -377,6 +394,30 @@ contains
       this%stork = merge( lb, -ub, this%storinc > 0 )
       this%jmax = (this%n-1) / l   
    end subroutine
+   
+   _PURE_ subroutine b_recap(this,capacity,keep)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: capacity
+      logical, intent(in) :: keep
+      optional :: capacity, keep
+      
+      integer :: newcap
+      logical :: keep___
+      integer(ik), allocatable :: atmp(:)
+      
+      keep___ = .true. ; if (present(keep)) keep___ = keep
+
+      newcap = this%n
+      if (present(capacity)) newcap = max( capacity, newcap )
+      newcap = ((newcap-1)/l+1) * l
+      if (newcap /= size(this%a)*l) then
+         allocate( atmp(0:(newcap-1)/l) )
+         if (keep___) atmp(0:this%jmax) = this%a(0:this%jmax)
+         call move_alloc( atmp, this%a )
+      end if
+   end subroutine
+      
+         
             
    _PURE_ subroutine b_append_b(this,that)
       class(bitfield_t), intent(inout) :: this
@@ -417,16 +458,11 @@ contains
    _PURE_ subroutine b_drop(this,k)
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: k
+      
+      if (this%storinc < 0) error stop "b_drop(): reversed bitfield" 
+
+      call b_resize( this, (this%lb), max(this%ub-k,0), .true. )
                   
-      this%n = this%n - k
-      if (this%n <= 0) then
-         this%n = 0
-         this%ub = this%lb - 1
-      else
-         this%ub = this%ub - k
-      end if
-      this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
-      this%jmax = (this%n-1) / l
    end subroutine
 
 
@@ -477,10 +513,9 @@ contains
       type(bitfield_t), intent(inout) :: that
       
       if (allocated(this%a) .and. this%getsize() /= that%getsize()) call b_deallocate(this)
-      if (.not.allocated(this%a)) call allocate_core(this,that%getlb(),that%getub(),1)
-      this%storinc = that%storinc 
-      this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
-      this%a(:) = that%a(:)
+      if (.not.allocated(this%a)) &
+         call allocate_core( this, that%getlb(), that%getub(), that%storinc )
+      this%a(:) = that%a(0:that%jmax)
    end subroutine 
    
    
@@ -578,6 +613,7 @@ contains
       integer(ik) :: a
       
       if (.not.allocated(this%a)) error stop "b_setrange1: bitfield is not allocated"
+      if (this%n == 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange1(): out of bound indeces" 
          
