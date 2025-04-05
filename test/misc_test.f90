@@ -20,8 +20,8 @@ write(*,"(A)",advance="no") "bitfield tests 1..."
 
 li = [.true., .false., .true.]
 bi = li
-if (bi%getsize() /= 3) error stop
-if (any(bi%fget() .neqv. li)) error stop
+if (bi%getsize() /= 3) error stop "a"
+if (any(bi%fget() .neqv. li)) error stop "b"
 call bi%deallocate()
 
 write(*,*) "PASSED"

@@ -1,3 +1,5 @@
+#define DEBUG
+
 #ifndef DEBUG
 #define _PURE_ pure
 #else
@@ -109,51 +111,6 @@
 !     type(bitfield_t) :: b1, b2
 !     logical :: bool
 !
-! ## Reversed bitfield
-!
-! The manipulations above are not efficient for an increment different from +1 or -1,
-! and some of them are efficient only for a +1 increment. However, some of the latter 
-! can be efficient for a -1 increment as well, but this requires a special version of 
-! the bitfield_t type, with the bits stored in the reverse order.
-! 
-! This subroutine/function extracts the bits whith a -1 increments, and outputs a 
-! reversed bitfield:
-!
-! call b%revextract(from,to,c) ! efficient
-! c = b%frevextract(from,to)   ! efficient
-!     integer :: from, to, inc
-!     type(bitfield_t) :: c    ! reversed
-!     *Note:* b must not be a reversed bitfield
-!
-! This subroutine replaces a reversed bitfield into a normal bitfield:
-!
-! call b%revreplace(from,to,c) ! efficient
-!     integer :: from, to, inc
-!     type(bitfield_t) :: c    ! reversed
-!     *Note:* b cannot be a reversed bitfield
-! 
-! There are 2 helper functions:
-!
-! call b%reverse()             ! not efficient
-! bool = b%is_reversed()
-!     logical :: bool
-! 
-! Otherwise, what can be done with a reversed bitfield is very limited. Here is the list:
-! 
-! Type-bound procedures that can be used with a reversed bitfield:
-! %getsize(), %getlb(), %getub(), %setlb(lb), %setub(ub)
-! %set(i,bool)             
-! %set(bool)               ! bool scalar or array
-! %set(from,to,inc,bool)   ! bool array
-! %get(i,bool)
-! bool = b%fget(i)
-!
-! Assignments that can be used with a reversed bitfield:
-! c = b
-! b = bool     ! bool scalar or array
-! 
-! operators that can be used with a reversed bitfield:
-! .and. , .or. , .eqv. , .neqv. , == , /=   ! the 2 operands must be reversed
 !***********************************************************************************************
 module bitfield
 !use iso_fortran_env
@@ -184,13 +141,12 @@ implicit none
       integer :: lb = 1
       integer :: ub = 0
       integer :: jmax = -1
-      integer :: storinc = 1
-      integer :: stork
       integer :: strat = BITFIELD_GROWONLY
    contains
       private
       procedure, public :: allocate => b_allocate
       procedure, public :: deallocate => b_deallocate
+      procedure, public :: allocated => b_allocated
       
       procedure, public :: resize => b_resize
       procedure, public :: recap => b_recap
@@ -204,6 +160,7 @@ implicit none
       procedure, public :: drop => b_drop
    
       procedure, public :: getsize => b_getsize
+      procedure, public :: getcapacity => b_getcapacity
       procedure, public :: getlb => b_getlb
       procedure, public :: getub => b_getub
       procedure, public :: setlb => b_setlb
@@ -241,13 +198,6 @@ implicit none
       procedure, public :: fextract => b_fextract
       procedure, public :: replace => b_replace   
       
-      procedure, public :: revextract => b_revextract
-      procedure, public :: frevextract => b_frevextract
-      procedure, public :: revreplace => b_revreplace
-      
-      procedure, public :: reverse => b_reverse
-      procedure, public :: is_reversed => b_is_reversed
-      
       procedure :: notall => b_notall
       procedure :: notrange => b_notrange
       generic, public :: not => notall, notrange
@@ -282,194 +232,25 @@ implicit none
 contains
 
    logical function bitfield_check() result(stat)
+   
       integer :: ii
       
-      stat = .true.
-      do ii = 0, l-1
-         stat = stat .and. btest( ones, ii )
-      end do
+      stat = all( btest( ones, [(ii,ii=0,l-1)] ) )
       stat = stat .and. shiftr(101,1) == 50 .and. shiftl(101,1) == 202
    end function
    
-   _PURE_ subroutine b_allocate(this,n,lb,ub,mold,source,capacity)
-      class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: n, lb, ub, capacity
-      type(bitfield_t), intent(in) :: mold, source
-      optional :: n, lb, ub, mold, source, capacity
-      
-      integer :: lb___, ub___, si___
-            
-      if (allocated(this%a)) error stop "bitfield is already allocated"
-      
-      if (present(n).or.present(ub)) then
-         if (present(n)) then
-            lb___ = 1
-            ub___ = n
-         else
-            lb___ = lb
-            ub___ = ub
-         end if
-         si___ = 1
-      else if (present(mold)) then
-         lb___ = mold%lb
-         ub___ = mold%ub
-         si___ = mold%storinc
-      else if (present(source)) then
-         lb___ = source%lb
-         ub___ = source%ub
-         si___ = source%storinc
-      end if
-      call allocate_core( this, lb___, ub___, 1 )
-      if (present(capacity)) call b_recap( this, capacity )
-      if (present(source)) this%a(0:source%jmax) = source%a(0:source%jmax)
-      
-   end subroutine 
-
-   _PURE_ subroutine allocate_core(this,lb,ub,si)
-      class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: lb, ub, si
-            
-      if (allocated(this%a)) error stop "bitfield is already allocated"
-      if (ub >= lb) then
-         this%n = ub - lb + 1 
-         this%lb = lb
-         this%ub = ub
-         this%storinc = 1
-         this%stork = lb
-         allocate( this%a(0:(this%n-1)/l) )
-         this%jmax = ubound( this%a, 1 )
-      else
-         this%n = 0 
-         allocate( this%a(1) )
-         this%jmax = -1
-      end if
-      
-   end subroutine 
-
-   _PURE_ subroutine b_deallocate(this)
-      class(bitfield_t), intent(inout) :: this
-      
-      if (.not.allocated(this%a)) error stop "bitfield is not allocated"
-      deallocate( this%a )
-      this%n = -1
-      this%lb = 1
-      this%ub = 0
-   end subroutine 
-   
-   _PURE_ subroutine b_set_dynamic_capacity(this,strat)
-      class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: strat
-      
-      this%strat = strat
-   end subroutine
-   
-   
-   _PURE_ subroutine b_resize(this,lb,ub,keep)
-      class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: lb, ub
-      logical, intent(in) :: keep
-      optional :: keep
-      
-      integer :: n, si, newcap
-
-      if (this%storinc < 0) error stop "b_resize(): reversed bitfield" 
-
-      n = ub - lb + 1
-      if (n > size(this%a) * l) then
-         newcap = 2 * size(this%a) * l
-         do while (n > newcap)
-            newcap = 2*newcap
-         end do
-         call b_recap( this, newcap, keep )
-      else if (3*n <= size(this%a) * l .and. this%strat == BITFIELD_GROWSHRINK) then
-         newcap = size(this%a) * l / 2
-         do while (3*n <= newcap)
-            newcap = newcap / 2
-         end do
-         call b_recap( this, newcap, keep )
-      end if
-      this%n = n
-      this%lb = lb
-      this%ub = ub
-      this%stork = merge( lb, -ub, this%storinc > 0 )
-      this%jmax = (this%n-1) / l   
-   end subroutine
-   
-   _PURE_ subroutine b_recap(this,capacity,keep)
-      class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: capacity
-      logical, intent(in) :: keep
-      optional :: capacity, keep
-      
-      integer :: newcap
-      logical :: keep___
-      integer(ik), allocatable :: atmp(:)
-      
-      keep___ = .true. ; if (present(keep)) keep___ = keep
-
-      newcap = this%n
-      if (present(capacity)) newcap = max( capacity, newcap )
-      newcap = ((newcap-1)/l+1) * l
-      if (newcap /= size(this%a)*l) then
-         allocate( atmp(0:(newcap-1)/l) )
-         if (keep___) atmp(0:this%jmax) = this%a(0:this%jmax)
-         call move_alloc( atmp, this%a )
-      end if
-   end subroutine
-      
-         
-            
-   _PURE_ subroutine b_append_b(this,that)
-      class(bitfield_t), intent(inout) :: this
-      type(bitfield_t), intent(in) :: that
-      
-      integer :: ub
-            
-      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_setrange0(): reversed bitfield" 
-
-      ub = this%ub
-      call b_resize( this, (this%lb), this%ub+that%n, .true. )
-      call b_replace( this, ub+1, this%n, 1, that )
-   end subroutine
-         
-   _PURE_ subroutine b_append_l0(this,v)
-      class(bitfield_t), intent(inout) :: this
-      logical, intent(in) :: v
-            
-      if (this%storinc < 0) error stop "b_setrange0(): reversed bitfield" 
-
-      call b_resize( this, (this%lb), this%ub+1, .true. )
-      call b_set0( this, this%n, v )
-   end subroutine
-   
-   _PURE_ subroutine b_append_l1(this,v)
-      class(bitfield_t), intent(inout) :: this
-      logical, intent(in) :: v(:)
-                  
-      integer :: ub
-
-      if (this%storinc < 0) error stop "b_setrange0(): reversed bitfield" 
-
-      ub = this%ub
-      call b_resize( this, (this%lb), this%ub+size(v), .true. )
-      call b_setrange1( this, ub+1, this%n, 1, v )
-   end subroutine
-
-   _PURE_ subroutine b_drop(this,k)
-      class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: k
-      
-      if (this%storinc < 0) error stop "b_drop(): reversed bitfield" 
-
-      call b_resize( this, (this%lb), max(this%ub-k,0), .true. )
-                  
-   end subroutine
 
 
    integer _PURE_ function b_getsize(this)
       class(bitfield_t), intent(in) :: this
       
       b_getsize = this%n
+   end function 
+   
+   integer _PURE_ function b_getcapacity(this)
+      class(bitfield_t), intent(in) :: this
+      
+      b_getcapacity = size( this%a ) * l
    end function 
    
    integer _PURE_ function b_getlb(this)
@@ -491,7 +272,6 @@ contains
       if (this%n > 0) then
          this%lb = lb
          this%ub = lb + this%n -1
-         this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
       end if
    end subroutine 
 
@@ -502,22 +282,237 @@ contains
       if (this%n > 0) then
          this%lb = ub - this%n + 1
          this%ub = ub
-         this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
       end if
    end subroutine 
+
+
+
+   _PURE_ subroutine b_allocate(this,n,lb,ub,mold,source,capacity)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: n, lb, ub, capacity
+      type(bitfield_t), intent(in) :: mold, source
+      optional :: n, lb, ub, mold, source, capacity
+      
+      integer :: lb___, ub___, si___
+            
+      if (allocated(this%a)) error stop "b_allocate: bitfield is already allocated"
+      
+      if (present(n).or.present(ub)) then
+         if (present(n)) then
+            lb___ = 1
+            ub___ = n
+         else
+            lb___ = lb
+            ub___ = ub
+         end if
+         si___ = 1
+      else if (present(mold)) then
+         lb___ = mold%lb
+         ub___ = mold%ub
+      else if (present(source)) then
+         lb___ = source%lb
+         ub___ = source%ub
+      end if
+      call allocate_core( this, lb___, ub___ )
+      if (present(capacity)) call b_recap( this, capacity )
+      if (present(source)) this%a(0:source%jmax) = source%a(0:source%jmax)
+      
+   end subroutine 
+
+   _PURE_ subroutine allocate_core(this,lb,ub)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: lb, ub
+            
+      if (ub >= lb) then
+         this%n = ub - lb + 1 
+         this%lb = lb
+         this%ub = ub
+         allocate( this%a(0:(this%n-1)/l) )
+         this%jmax = ubound( this%a, 1 )
+      else
+         this%n = 0 
+         allocate( this%a(0:0) )
+      end if
+      
+   end subroutine 
+
+   _PURE_ subroutine b_deallocate(this)
+      class(bitfield_t), intent(inout) :: this
+            
+      if (.not.b_allocated(this)) error stop "b_deallocate: bitfield is not allocated"
+      
+      deallocate( this%a )
+      this%n = -1
+      this%lb = 1
+      this%ub = 0
+      this%jmax = -1
+      this%strat = BITFIELD_GROWONLY
+   end subroutine 
    
+   _PURE_ logical function b_allocated(this)
+      class(bitfield_t), intent(in) :: this
+            
+      b_allocated = allocated( this%a )
+   end function 
+   
+   
+   
+   _PURE_ subroutine b_set_dynamic_capacity(this,strat)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: strat
+      
+      this%strat = strat
+   end subroutine
+   
+   _PURE_ subroutine b_resize(this,lb,ub,keep)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: lb, ub
+      logical, intent(in) :: keep
+      optional :: keep
+      
+      integer :: n, si, newcap
+
+      if (.not.b_allocated(this)) error stop "b_resize: bitfield is not allocated"
+
+      n = ub - lb + 1
+      if (n > size(this%a) * l) then
+         newcap = 2 * size(this%a) * l
+         do while (n > newcap)
+            newcap = 2*newcap
+         end do
+         call b_recap( this, newcap, keep )
+      else if (3*n <= size(this%a) * l .and. this%strat == BITFIELD_GROWSHRINK) then
+         newcap = size(this%a) * l / 2
+         do while (3*n <= newcap)
+            newcap = newcap / 2
+         end do
+         call b_recap( this, newcap, keep )
+      end if
+      this%n = n
+      this%lb = lb
+      this%ub = ub
+      this%jmax = (this%n-1) / l   
+   end subroutine
+   
+   _PURE_ subroutine b_recap(this,capacity,keep)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: capacity
+      logical, intent(in) :: keep
+      optional :: capacity, keep
+      
+      integer :: newcap
+      logical :: keep___
+      integer(ik), allocatable :: atmp(:)
+      
+      if (.not.b_allocated(this)) error stop "b_resize: bitfield is not allocated"
+
+      keep___ = .true. ; if (present(keep)) keep___ = keep
+
+      newcap = this%n
+      if (present(capacity)) newcap = max( capacity, newcap )
+      newcap = ((newcap-1)/l+1) * l
+      if (newcap /= size(this%a)*l) then
+         allocate( atmp(0:(newcap-1)/l) )
+         if (keep___) atmp(0:this%jmax) = this%a(0:this%jmax)
+         call move_alloc( atmp, this%a )
+      end if
+   end subroutine
+      
+         
+            
+   _PURE_ subroutine b_append_b(this,that)
+      class(bitfield_t), intent(inout) :: this
+      type(bitfield_t), intent(in) :: that
+      
+      integer :: ub
+
+#ifdef DEBUG   
+      if (.not.b_allocated(this)) error stop "b_append_b: bitfield is not allocated"
+#endif
+      ub = this%ub
+      call b_resize( this, (this%lb), this%ub+that%n, .true. )
+      call b_replace( this, ub+1, this%n, 1, that )
+   end subroutine
+         
+   _PURE_ subroutine b_append_l0(this,v)
+      class(bitfield_t), intent(inout) :: this
+      logical, intent(in) :: v
+            
+#ifdef DEBUG   
+      if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
+#endif
+      call b_resize( this, (this%lb), this%ub+1, .true. )
+      call b_set0( this, this%n, v )
+   end subroutine
+   
+   _PURE_ subroutine b_append_l1(this,v)
+      class(bitfield_t), intent(inout) :: this
+      logical, intent(in) :: v(:)
+                  
+      integer :: ub
+
+#ifdef DEBUG   
+      if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
+#endif
+      ub = this%ub
+      call b_resize( this, (this%lb), this%ub+size(v), .true. )
+      call b_setrange1( this, ub+1, this%n, 1, v )
+   end subroutine
+
+   _PURE_ subroutine b_drop(this,k)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: k
+      optional :: k
+      
+#ifdef DEBUG   
+      if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
+#endif
+      if (present(k)) then
+         call b_resize( this, (this%lb), max(this%ub-k,0), .true. )
+      else
+         call b_resize( this, (this%lb), max(this%ub-1,0), .true. )
+      end if
+                  
+   end subroutine
+      
    
    
    _PURE_ subroutine assign_b2b(this,that)
       class(bitfield_t), intent(inout) :: this
       type(bitfield_t), intent(inout) :: that
       
-      if (allocated(this%a) .and. this%getsize() /= that%getsize()) call b_deallocate(this)
-      if (.not.allocated(this%a)) &
-         call allocate_core( this, that%getlb(), that%getub(), that%storinc )
+      if (b_allocated(this) .and. this%getsize() /= that%getsize()) &
+         call b_deallocate(this)
+      if (.not.b_allocated(this)) &
+         call allocate_core( this, that%getlb(), that%getub() )
       this%a(:) = that%a(0:that%jmax)
    end subroutine 
    
+   _PURE_ subroutine assign_l2b_0(this,v)
+      class(bitfield_t), intent(inout) :: this
+      logical, intent(in) :: v
+      
+      call b_setall0(this,v)
+   end subroutine 
+   
+   _PURE_ subroutine assign_l2b_1(this,v)
+      class(bitfield_t), intent(inout) :: this
+      logical, allocatable, intent(in) :: v(:)
+      
+      if (b_allocated(this) .and. this%getsize() /= size(v)) call b_deallocate(this)
+      if (.not.b_allocated(this)) call allocate_core(this,lbound(v,1),ubound(v,1))
+      call b_setall1(this,v)
+   end subroutine 
+
+   _PURE_ subroutine assign_b2l(v,this)
+      logical, allocatable, intent(out) :: v(:)
+      type(bitfield_t), intent(in) :: this
+      
+      if (allocated(v) .and. this%getsize() /= size(v)) deallocate(v)
+      if (.not.allocated(v)) allocate( v(this%getlb():this%getub()) )
+      call b_getall(this,v)
+   end subroutine 
+
    
 
    _PURE_ subroutine b_set0(this,i,v)
@@ -540,7 +535,7 @@ contains
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v
       
-      if (.not.allocated(this%a)) error stop "b_setall0: bitfield is not allocated"
+      if (.not.b_allocated(this)) error stop "b_setall0: bitfield is not allocated"
       this%a(:) = merge(ones,zeros,v)
    end subroutine 
 
@@ -558,10 +553,9 @@ contains
          return
       end if
       
-      if (.not.allocated(this%a)) error stop "b_setrange0: bitfield is not allocated"
+      if (.not.b_allocated(this)) error stop "b_setrange0: bitfield is not allocated"
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange0(): out of bound indeces" 
-      if (this%storinc < 0) error stop "b_setrange0(): reversed bitfield" 
       if (istop < istart) return
       
       if (inc == 1) then
@@ -612,32 +606,21 @@ contains
       integer :: iir(l), iirs
       integer(ik) :: a
       
-      if (.not.allocated(this%a)) error stop "b_setrange1: bitfield is not allocated"
-      if (this%n == 0) return
-      if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
-         error stop "b_setrange1(): out of bound indeces" 
-         
+      if (.not.b_allocated(this)) error stop "b_setrange1: bitfield is not allocated"
+      if (this%n == 0 ) then
+         if ((istop-istart)*inc >=0) error stop "b_setrange1(): out of bound indeces" 
+         return
+      else
+         if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
+            error stop "b_setrange1(): out of bound indeces" 
+      end if
+      if ( (istop-istart)/inc+1 /= size(v) ) error stop "b_setrange1(): the shapes differ" 
+      
       iv = 0
       do i = istart, istop, inc
          iv = iv+1
          call b_set0( this, i, v(iv) )
       end do
-   end subroutine 
-
-   _PURE_ subroutine assign_l2b_0(this,v)
-      class(bitfield_t), intent(inout) :: this
-      logical, intent(in) :: v
-      
-      call b_setall0(this,v)
-   end subroutine 
-   
-   _PURE_ subroutine assign_l2b_1(this,v)
-      class(bitfield_t), intent(inout) :: this
-      logical, allocatable, intent(in) :: v(:)
-      
-      if (allocated(this%a) .and. this%getsize() /= size(v)) call b_deallocate(this)
-      if (.not.allocated(this%a)) call allocate_core(this,lbound(v,1),ubound(v,1),1)
-      call b_setall1(this,v)
    end subroutine 
 
    
@@ -672,7 +655,6 @@ contains
       if (sign(1,istop-istart)*sign(1,inc) < 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_getrange1(): out of bound indeces" 
-      if (this%storinc < 0) error stop "b_getrange1(): reversed bitfield" 
 
       if (0 < inc .and. inc <= l/minbatch) then
          call indeces( this, istart, jstart, iistart)
@@ -737,15 +719,6 @@ contains
       call b_getrange(this,istart,istop,inc,v)   
    end function
 
-   _PURE_ subroutine assign_b2l(v,this)
-      logical, allocatable, intent(out) :: v(:)
-      type(bitfield_t), intent(in) :: this
-      
-      if (allocated(v) .and. this%getsize() /= size(v)) deallocate(v)
-      if (.not.allocated(v)) allocate( v(this%getlb():this%getub()) )
-      call b_getall(this,v)
-   end subroutine 
-
 
    
    _PURE_ subroutine b_replace(this,istart,istop,inc,that)
@@ -759,7 +732,6 @@ contains
       if (that%getsize() <= 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_replace(): out of bound bounds" 
-      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_replace(): reversed bitfield" 
       
       call indeces(this,istart,jstart,iistart)
       call indeces(this,istop,jstop ,iistop)
@@ -785,35 +757,6 @@ contains
       end if
    end subroutine 
 
-   _PURE_ subroutine b_revreplace(this,istart,istop,that)
-      class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: istart, istop
-      type(bitfield_t), intent(in) :: that
-      
-      integer :: iistart, iistop, jstart, jstop, j, jsource
-      
-      if (that%getsize() <= 0) return
-      if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
-         error stop "b_reverse_replace(): out of bound bounds" 
-      if (this%storinc < 0) error stop "b_reverse_replace(): reversed destination bitfield" 
-      if (that%storinc > 0) error stop "b_reverse_replace(): not reversed source bitfield" 
-      
-      call indeces(this,istart,jstart,iistart)
-      call indeces(this,istop,jstop ,iistop)
-      if (jstart == jstop) then
-         call mvbits(that%a(0),0,iistart-iistop+1,this%a(jstop),iistop)
-      else
-         jsource = -1
-         do j = jstop, jstart
-            if (jsource >= 0) &
-               call mvbits(that%a(jsource),l-iistop,iistop,this%a(j),0)
-            jsource = jsource + 1
-            if (jsource <= ubound(that%a,1)) &
-               call mvbits(that%a(jsource),0,l-iistop,this%a(j),iistop)
-         end do
-      end if
-   end subroutine 
-
 
 
    _PURE_ subroutine b_extract(this,istart,istop,inc,that)
@@ -827,17 +770,16 @@ contains
       
       if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
          error stop "b_extract(): out of bound indeces" 
-      if (this%storinc < 0) error stop "b_extract(): reversed input bitfield" 
       
-      if (allocated(that%a)) call b_deallocate( that )
+      if (b_allocated(that)) call b_deallocate( that )
          
       n = (istop-istart)/inc + 1
       if (n <= 0) then
-         call allocate_core(that,1,0,1)
+         call allocate_core(that,1,0)
          return
       end if
       
-      call allocate_core(that,1,n,1)
+      call allocate_core(that,1,n)
       call indeces(this,istart,jstart,iistart)
       call indeces(this,istop ,jstop ,iistop)
       if (inc == 1) then
@@ -869,71 +811,8 @@ contains
       
       call b_extract(this,istart,istop,inc,that)
    end function
+      
    
-   _PURE_ subroutine b_revextract(this,istart,istop,that)
-      class(bitfield_t), intent(in) :: this
-      integer, intent(in) :: istart, istop
-      type(bitfield_t), intent(inout) :: that
-      
-      integer :: iistart, iistop, jstart, jstop, j, jdest, n
-      
-      if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
-         error stop "b_reverse_extract(): out of bound indeces" 
-      if (this%storinc < 0) error stop "b_reverse_extract(): reversed input bitfield" 
-      
-      if (allocated(that%a)) call b_deallocate( that )
-         
-      n = (istart-istop) + 1
-      if (n <= 0) then
-         call allocate_core(that,1,0,1)
-         return
-      end if
-      
-      call allocate_core(that,1,n,-1)
-      call indeces(this,istart,jstart,iistart)
-      call indeces(this,istop ,jstop ,iistop)
-      if (jstart == jstop) then
-         call mvbits(this%a(jstart),iistop,iistart-iistop+1,that%a(0),0)
-      else
-         jdest = -1
-         do j = jstop, jstart
-            if (jdest >= 0) &
-               call mvbits(this%a(j),0,iistop,that%a(jdest),l-iistop)
-            jdest = jdest + 1 ; 
-            if (jdest <= ubound(that%a,1)) &
-               call mvbits(this%a(j),iistop,l-iistop,that%a(jdest),0)
-         end do
-      end if
-   end subroutine 
-   
-   _PURE_ function b_frevextract(this,istart,istop) result(that)
-      class(bitfield_t), intent(in) :: this
-      integer, intent(in) :: istart, istop
-      type(bitfield_t) :: that
-      
-      call b_revextract(this,istart,istop,that)
-   end function      
-   
-   
-   
-   _PURE_ subroutine b_reverse(this)
-      class(bitfield_t), intent(inout) :: this
-      
-      integer :: i
-      
-      do i = this%lb, (this%lb + this%ub)/2
-         call this%set( i, this%fget( this%ub + this%lb - i ) )
-      end do
-      this%storinc = -this%storinc
-      this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
-   end subroutine b_reverse
-   
-   _PURE_ logical function b_is_reversed(this)
-      class(bitfield_t), intent(in) :: this
-      
-      b_is_reversed = this%storinc > 0
-   end function b_is_reversed   
-
 
    _PURE_ logical function b_allall(this)
       class(bitfield_t), intent(in) :: this
@@ -948,8 +827,6 @@ contains
       integer :: kstart, kstop
       type(bitfield_t) :: bb
    
-      if (this%storinc < 0) error stop "b_allrange(): reversed input bitfield" 
-
       if (inc < 0) then
          v = b_allrange(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
@@ -982,8 +859,6 @@ contains
       integer :: kstart, kstop
       type(bitfield_t) :: bb
    
-      if (this%storinc < 0) error stop "b_anyrange(): reversed input bitfield" 
-
       if (inc < 0) then
          v = b_anyrange(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
@@ -1016,8 +891,6 @@ contains
       integer :: kstart, kstop
       type(bitfield_t) :: bb
    
-      if (this%storinc < 0) error stop "b_countrange(): reversed input bitfield" 
-
       if (inc < 0) then
          v = b_countrange(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
@@ -1048,8 +921,6 @@ contains
       integer :: kstart, kstop
       type(bitfield_t) :: bb
    
-      if (this%storinc < 0) error stop "b_notrange(): reversed input bitfield" 
-
       if (inc < 0) then
          call b_notrange(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
@@ -1069,7 +940,7 @@ contains
       type(bitfield_t), intent(in) :: this
       type(bitfield_t) :: b
             
-      call allocate_core(b,1,this%n,this%storinc)
+      call allocate_core(b,1,this%n)
       b%a(:) = not( this%a )
    end function
    
@@ -1077,10 +948,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      if (this%storinc * that%storinc < 0) &
-         error stop "b_and(): the input bitfields don't have the same storage order" 
-
-      call allocate_core(b,1,this%n,this%storinc)
+      call allocate_core(b,1,this%n)
       b%a(:) = iand( this%a, that%a )
    end function
    
@@ -1088,10 +956,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      if (this%storinc * that%storinc < 0) &
-         error stop "b_or(): the input bitfields don't have the same storage order" 
-
-      call allocate_core(b,1,this%n,this%storinc)
+      call allocate_core(b,1,this%n)
       b%a(:) = ior( this%a, that%a )
    end function
    
@@ -1099,10 +964,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      if (this%storinc * that%storinc < 0) &
-         error stop "b_eqv(): the input bitfields don't have the same storage order" 
-
-      call allocate_core(b,1,this%n,this%storinc)
+      call allocate_core(b,1,this%n)
       b%a(:) = ieor( this%a, that%a )
       b%a(:) = not(b%a)
    end function
@@ -1111,10 +973,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      if (this%storinc * that%storinc < 0) &
-         error stop "b_neqv(): the input bitfields don't have the same storage order" 
-
-      call allocate_core(b,1,this%n,this%storinc)
+      call allocate_core(b,1,this%n)
       b%a(:) = ieor( this%a, that%a )
    end function
    
@@ -1124,11 +983,8 @@ contains
       integer :: j, j1, ii1, j2, ii2
       integer(ik) :: a1, a2
       
-      if (this%storinc * that%storinc < 0) &
-         error stop "b_equal(): the input bitfields don't have the same storage order" 
-
-      call indeces( this, merge( this%ub, this%lb, this%storinc > 0 ), j1, ii1 )
-      call indeces( that, merge( that%ub, that%lb, that%storinc > 0 ), j2, ii2 )
+      call indeces( this, this%ub, j1, ii1 )
+      call indeces( that, that%ub, j2, ii2 )
       a1 = zeros ; a2 = zeros
       call mvbits( this%a(j1), 0, ii1+1, a1, 0 )
       call mvbits( this%a(j2), 0, ii2+1, a2, 0 )
@@ -1146,11 +1002,8 @@ contains
       integer :: j, j1, ii1, j2, ii2
       integer(ik) :: a1, a2
       
-      if (this%storinc * that%storinc < 0) &
-         error stop "b_nequal(): the input bitfields don't have the same storage order" 
-
-      call indeces( this, merge( this%ub, this%lb, this%storinc > 0 ), j1, ii1 )
-      call indeces( that, merge( that%ub, that%lb, that%storinc > 0 ), j2, ii2 )
+      call indeces( this, this%ub, j1, ii1 )
+      call indeces( that, that%ub, j2, ii2 )
       a1 = zeros ; a2 = zeros
       call mvbits( this%a(j1), 0, ii1+1, a1, 0 )
       call mvbits( this%a(j2), 0, ii2+1, a2, 0 )
@@ -1169,7 +1022,7 @@ contains
       integer, intent(in) :: i
       integer, intent(out) :: j, ii
       
-      ii = this%storinc * i - this%stork
+      ii = i - this%lb
       !j = ii/l ; ii = ii - j*l
       j = shiftr(ii,l2l); ii = ii - shiftl(j,l2l)
    end subroutine
@@ -1179,8 +1032,6 @@ contains
       
       integer :: ii, iii, j
       
-      if (this%storinc < 0) error stop "clear_end(): reversed input bitfield" 
-
       call indeces(this,this%ub,j,ii)
       do iii = ii+1, l-1
          this%a(j) = ibclr(this%a(j),iii)
@@ -1192,8 +1043,6 @@ contains
       
       integer :: ii, iii, j
       
-      if (this%storinc < 0) error stop "set_end(): reversed input bitfield" 
-
       call indeces(this,this%ub,j,ii)
       do iii = ii+1, l-1
          this%a(j) = ibset(this%a(j),iii)
