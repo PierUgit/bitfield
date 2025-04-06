@@ -142,25 +142,25 @@ contains
    
 
 
-   integer _PURE_ function b_getsize(this)
+   integer(sk) _PURE_ function b_getsize(this)
       class(bitfield_t), intent(in) :: this
       
       b_getsize = this%n
    end function 
    
-   integer _PURE_ function b_getcapacity(this)
+   integer(sk) _PURE_ function b_getcapacity(this)
       class(bitfield_t), intent(in) :: this
       
       b_getcapacity = size( this%a, kind=sk ) * l
    end function 
    
-   integer _PURE_ function b_getlb(this)
+   integer(sk) _PURE_ function b_getlb(this)
       class(bitfield_t), intent(in) :: this
       
       b_getlb = this%lb
    end function 
 
-   integer _PURE_ function b_getub(this)
+   integer(sk) _PURE_ function b_getub(this)
       class(bitfield_t), intent(in) :: this
       
       b_getub = this%ub
