@@ -21,8 +21,8 @@ Returns `.true.` if the `integer` type behaves as expected (e.g. that all bits a
 ```
 subroutine b%allocate( n [, capacity] )
 subroutine b%allocate( lb, ub [, capacity] )
-subroutine b%( mold [, capacity] )
-subroutine b%( source [, capacity] )
+subroutine b%allocate( mold [, capacity] )
+subroutine b%allocate( source [, capacity] )
     integer, intent(in) :: n, lb, ub, capacity
     type(bitfield_t) :: mold, source
 ```
