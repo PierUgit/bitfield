@@ -12,7 +12,8 @@
 ! License: GPL v3 
 !***********************************************************************************************
 module bitfield
-!use iso_fortran_env
+use iso_fortran_env
+use iso_c_binding
 implicit none
 
    private
@@ -24,6 +25,7 @@ implicit none
    public :: BITFIELD_GROWONLY, BITFIELD_GROWSHRINK
 
    integer, parameter :: ik = selected_int_kind(r=18)
+   integer, parameter :: sk = c_size_t
    integer, parameter :: l = bit_size(0_ik)
    integer, parameter :: l2l = nint(log(real(l))/log(2.0))
    integer, parameter :: ll = 64*l
@@ -36,10 +38,10 @@ implicit none
    type :: bitfield_t
       private
       integer(ik), allocatable :: a(:)
-      integer :: n = -1
-      integer :: lb = 1
-      integer :: ub = 0
-      integer :: jmax = -1
+      integer(sk) :: n = -1
+      integer(sk) :: lb = 1
+      integer(sk) :: ub = 0
+      integer(sk) :: jmax = -1
       integer :: strat = BITFIELD_GROWONLY
    contains
       private
@@ -149,7 +151,7 @@ contains
    integer _PURE_ function b_getcapacity(this)
       class(bitfield_t), intent(in) :: this
       
-      b_getcapacity = size( this%a ) * l
+      b_getcapacity = size( this%a, kind=sk ) * l
    end function 
    
    integer _PURE_ function b_getlb(this)
@@ -192,7 +194,7 @@ contains
       type(bitfield_t), intent(in) :: mold, source
       optional :: n, lb, ub, mold, source, capacity
       
-      integer :: lb___, ub___, si___
+      integer(sk) :: lb___, ub___
             
       if (allocated(this%a)) error stop "b_allocate: bitfield is already allocated"
       
@@ -204,7 +206,6 @@ contains
             lb___ = lb
             ub___ = ub
          end if
-         si___ = 1
       else if (present(mold)) then
          lb___ = mold%lb
          ub___ = mold%ub
@@ -220,7 +221,7 @@ contains
 
    _PURE_ subroutine allocate_core(this,lb,ub)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: lb, ub
+      integer(sk), intent(in) :: lb, ub
             
       if (ub >= lb) then
          this%n = ub - lb + 1 
@@ -329,8 +330,8 @@ contains
       if (.not.b_allocated(this)) error stop "b_append_b: bitfield is not allocated"
 #endif
       ub = this%ub
-      call b_resize( this, (this%lb), this%ub+that%n, .true. )
-      call b_replace( this, ub+1, this%n, 1, that )
+      call b_resize( this, int(this%lb,kind=kind(0)), int(this%ub+that%n,kind=kind(0)), .true. )
+      call b_replace( this, ub+1, int(this%n,kind=kind(0)), 1, that )
    end subroutine
          
    _PURE_ subroutine b_append_l0(this,v)
@@ -340,8 +341,8 @@ contains
 #ifdef DEBUG   
       if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
 #endif
-      call b_resize( this, (this%lb), this%ub+1, .true. )
-      call b_set0( this, this%n, v )
+      call b_resize( this, int(this%lb,kind=kind(0)), int(this%ub+1,kind=kind(0)), .true. )
+      call b_set0( this, int(this%n,kind=kind(0)), v )
    end subroutine
    
    _PURE_ subroutine b_append_l1(this,v)
@@ -354,8 +355,8 @@ contains
       if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
 #endif
       ub = this%ub
-      call b_resize( this, (this%lb), this%ub+size(v), .true. )
-      call b_setrange1( this, ub+1, this%n, 1, v )
+      call b_resize( this, int(this%lb,kind=kind(0)), int(this%ub+size(v),kind=kind(0)), .true. )
+      call b_setrange1( this, ub+1, int(this%n,kind=kind(0)), 1, v )
    end subroutine
 
    _PURE_ subroutine b_drop(this,k)
@@ -367,9 +368,9 @@ contains
       if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
 #endif
       if (present(k)) then
-         call b_resize( this, (this%lb), max(this%ub-k,0), .true. )
+         call b_resize( this, int(this%lb,kind=kind(0)), int(max(this%ub-k,0),kind=kind(0)), .true. )
       else
-         call b_resize( this, (this%lb), max(this%ub-1,0), .true. )
+         call b_resize( this,  int(this%lb,kind=kind(0)), int(max(this%ub-1,0),kind=kind(0)), .true. )
       end if
                   
    end subroutine
@@ -383,7 +384,7 @@ contains
       if (b_allocated(this) .and. this%getsize() /= that%getsize()) &
          call b_deallocate(this)
       if (.not.b_allocated(this)) &
-         call allocate_core( this, that%getlb(), that%getub() )
+         call allocate_core( this, that%lb, that%ub )
       this%a(:) = that%a(0:that%jmax)
    end subroutine 
    
@@ -399,7 +400,7 @@ contains
       logical, allocatable, intent(in) :: v(:)
       
       if (b_allocated(this) .and. this%getsize() /= size(v)) call b_deallocate(this)
-      if (.not.b_allocated(this)) call allocate_core(this,lbound(v,1),ubound(v,1))
+      if (.not.b_allocated(this)) call allocate_core(this,lbound(v,1)*1_sk,ubound(v,1)*1_sk)
       call b_setall1(this,v)
    end subroutine 
 
@@ -419,10 +420,11 @@ contains
       integer, intent(in) :: i
       logical, intent(in) :: v
       
-      integer :: ii, j
+      integer :: ii
+      integer(sk) :: j
       
       ! no runtime check, as it would hurt the performances for a single bit set
-      call indeces(this,i,j,ii)
+      call indeces(this,i*1_sk,j,ii)
       if (v) then
          this%a(j) = ibset(this%a(j),ii)
       else
@@ -444,7 +446,8 @@ contains
       logical, intent(in) :: v
       
       integer(ik) :: a
-      integer :: iistart, iistop, jstart, jstop, i, j, k
+      integer :: iistart, iistop, i, k
+      integer(sk) :: jstart, jstop, j
       integer :: iir(l), iirs
       
       if (inc < 0) then
@@ -459,8 +462,8 @@ contains
       
       if (inc == 1) then
          a = merge(ones,zeros,v)
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
+         call indeces(this,istart*1_sk,jstart,iistart)
+         call indeces(this,istop *1_sk,jstop ,iistop)
          if (jstart == jstop) then
             call mvbits( a, 0, iistop-iistart+1, this%a(jstart), iistart )
          else
@@ -469,8 +472,8 @@ contains
             call mvbits(a,0,iistop+1,this%a(jstop),0)
          endif
       else if (inc <= l/minbatch) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
+         call indeces(this,istart*1_sk,jstart,iistart)
+         call indeces(this,istop *1_sk,jstop ,iistop)
          j = jstart
          iirs = 0
          do
@@ -493,7 +496,7 @@ contains
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v(:)
       
-      call b_setrange1(this,this%lb,this%ub,1,v)
+      call b_setrange1(this,int(this%lb,kind=kind(0)),int(this%ub,kind=kind(0)),1,v)
    end subroutine 
 
    _PURE_ subroutine b_setrange1(this,istart,istop,inc,v)
@@ -529,9 +532,10 @@ contains
       integer, intent(in) :: i
       logical, intent(out) :: v
       
-      integer :: j, ii
+      integer :: ii
+      integer(sk) :: j
       
-      call indeces(this,i,j,ii)
+      call indeces(this,i*1_sk,j,ii)
       v = btest(this%a(j),ii)
    end subroutine 
    
@@ -540,7 +544,7 @@ contains
       logical, intent(out) :: v(:)
       
       if (this%getsize() /= size(v)) error stop "b_getall(): the sizes differ" 
-      call b_getrange(this,this%lb,this%ub,1,v)
+      call b_getrange(this,int(this%lb,kind=kind(0)),int(this%ub,kind=kind(0)),1,v)
    end subroutine 
    
    _PURE_ subroutine b_getrange(this,istart,istop,inc,v)
@@ -548,7 +552,8 @@ contains
       integer, intent(in) :: istart, istop, inc
       logical, intent(out) :: v(:)
       
-      integer :: i1, i2, j, iistart, iistop, jstart, jstop, i, iv
+      integer :: i1, i2, iistart, iistop, i, iv
+      integer(sk) :: j, jstart, jstop
       integer :: iir(l), iirs
       
       if (sign(1,istop-istart)*sign(1,inc) < 0) return
@@ -556,8 +561,8 @@ contains
          error stop "b_getrange1(): out of bound indeces" 
 
       if (0 < inc .and. inc <= l/minbatch) then
-         call indeces( this, istart, jstart, iistart)
-         call indeces( this, istop , jstop , iistop)
+         call indeces( this, istart*1_sk, jstart, iistart)
+         call indeces( this, istop *1_sk, jstop , iistop)
          j = jstart
          i1 = 1
          iirs = 0
@@ -569,8 +574,8 @@ contains
             i1 = i2+1
          end do
       else if (0 < -inc .and. -inc <= l/minbatch) then
-         call indeces( this, istart,                       jstart, iistart )
-         call indeces( this, istop+mod(istart-istop,-inc), jstop,  iistop  )
+         call indeces( this, istart*1_sk,                       jstart, iistart )
+         call indeces( this, istop *1_sk+mod(istart-istop,-inc), jstop,  iistop )
          j = jstop
          i1 = size(v)
          iirs = 0
@@ -625,15 +630,16 @@ contains
       integer, intent(in) :: istart, istop, inc
       type(bitfield_t), intent(in) :: that
       
-      integer :: k, i, iistart, iistop, jstart, jstop, j, jsource, iisource, isource
+      integer :: k, i, iistart, iistop, jsource, iisource, isource
+      integer(sk) :: j, jstart, jstop
       integer :: iir(l), iirs
       
       if (that%getsize() <= 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_replace(): out of bound bounds" 
       
-      call indeces(this,istart,jstart,iistart)
-      call indeces(this,istop,jstop ,iistop)
+      call indeces(this,istart*1_sk,jstart,iistart)
+      call indeces(this,istop *1_sk,jstop ,iistop)
       if (inc == 1) then
          if (jstart == jstop) then
             call mvbits(that%a(0),0,iistop-iistart+1,this%a(jstart),iistart)
@@ -663,7 +669,8 @@ contains
       integer, intent(in) :: istart, istop, inc
       type(bitfield_t), intent(inout) :: that
       
-      integer :: k, i, iistart, iistop, jstart, jstop, j, jdest, iidest, n, idest
+      integer :: i, iistart, iistop, idest, iidest
+      integer(sk) :: jstart, jstop, j, jdest, n
       integer :: iir(l), iirs
       logical :: v(l)
       
@@ -674,13 +681,13 @@ contains
          
       n = (istop-istart)/inc + 1
       if (n <= 0) then
-         call allocate_core(that,1,0)
+         call allocate_core(that,1_sk,0_sk)
          return
       end if
       
-      call allocate_core(that,1,n)
-      call indeces(this,istart,jstart,iistart)
-      call indeces(this,istop ,jstop ,iistop)
+      call allocate_core(that,1_sk,n)
+      call indeces(this,istart*1_sk,jstart,iistart)
+      call indeces(this,istop *1_sk,jstop ,iistop)
       if (inc == 1) then
          if (jstart == jstop) then
             call mvbits(this%a(jstart),iistart,iistop-iistart+1,that%a(0),0)
@@ -716,7 +723,7 @@ contains
    _PURE_ logical function b_allall(this)
       class(bitfield_t), intent(in) :: this
       
-      b_allall = b_allrange(this,this%lb,this%ub,1)
+      b_allall = b_allrange(this,int(this%lb,kind=kind(0)),int(this%ub,kind=kind(0)),1)
    end function 
 
    _PURE_ recursive logical function b_allrange(this,istart,istop,inc) result(v)
@@ -748,7 +755,7 @@ contains
    _PURE_ logical function b_anyall(this)
       class(bitfield_t), intent(in) :: this
       
-      b_anyall = b_anyrange(this,this%lb,this%ub,1)
+      b_anyall = b_anyrange(this,int(this%lb,kind=kind(0)),int(this%ub,kind=kind(0)),1)
    end function 
 
    _PURE_ recursive logical function b_anyrange(this,istart,istop,inc) result(v)
@@ -780,7 +787,7 @@ contains
    _PURE_ integer function b_countall(this) result(v)
       class(bitfield_t), intent(in) :: this
       
-      v = b_countrange(this,this%lb,this%ub,1)
+      v = b_countrange(this,int(this%lb,kind=kind(0)),int(this%ub,kind=kind(0)),1)
    end function 
 
    _PURE_ recursive integer function b_countrange(this,istart,istop,inc) result(v)
@@ -839,7 +846,7 @@ contains
       type(bitfield_t), intent(in) :: this
       type(bitfield_t) :: b
             
-      call allocate_core(b,1,this%n)
+      call allocate_core(b,1_sk,this%n)
       b%a(:) = not( this%a )
    end function
    
@@ -847,7 +854,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call allocate_core(b,1,this%n)
+      call allocate_core(b,1_sk,this%n)
       b%a(:) = iand( this%a, that%a )
    end function
    
@@ -855,7 +862,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call allocate_core(b,1,this%n)
+      call allocate_core(b,1_sk,this%n)
       b%a(:) = ior( this%a, that%a )
    end function
    
@@ -863,7 +870,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call allocate_core(b,1,this%n)
+      call allocate_core(b,1_sk,this%n)
       b%a(:) = ieor( this%a, that%a )
       b%a(:) = not(b%a)
    end function
@@ -872,14 +879,15 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call allocate_core(b,1,this%n)
+      call allocate_core(b,1_sk,this%n)
       b%a(:) = ieor( this%a, that%a )
    end function
    
    _PURE_ logicalfunction b_equal(this,that) result(v)
       type(bitfield_t), intent(in) :: this, that
             
-      integer :: j, j1, ii1, j2, ii2
+      integer :: ii1, ii2
+      integer(sk) :: j, j1, j2
       integer(ik) :: a1, a2
       
       call indeces( this, this%ub, j1, ii1 )
@@ -898,7 +906,8 @@ contains
    _PURE_ logicalfunction b_notequal(this,that) result(v)
       type(bitfield_t), intent(in) :: this, that
             
-      integer :: j, j1, ii1, j2, ii2
+      integer :: ii1, ii2
+      integer(sk) :: j, j1, j2
       integer(ik) :: a1, a2
       
       call indeces( this, this%ub, j1, ii1 )
@@ -918,18 +927,22 @@ contains
    
    _PURE_ subroutine indeces(this,i,j,ii)
       type(bitfield_t), intent(in) :: this
-      integer, intent(in) :: i
-      integer, intent(out) :: j, ii
+      integer(sk), intent(in) :: i
+      integer(sk), intent(out) :: j
+      integer, intent(out) :: ii
       
-      ii = i - this%lb
+      integer(sk) :: ii___
+      
+      ii___ = i - this%lb
       !j = ii/l ; ii = ii - j*l
-      j = shiftr(ii,l2l); ii = ii - shiftl(j,l2l)
+      j = shiftr(ii___,l2l); ii = ii___ - shiftl(j,l2l)
    end subroutine
    
    _PURE_ subroutine clear_end(this)
       type(bitfield_t), intent(inout) :: this
       
-      integer :: ii, iii, j
+      integer :: ii, iii
+      integer(sk) :: j
       
       call indeces(this,this%ub,j,ii)
       do iii = ii+1, l-1
@@ -940,7 +953,8 @@ contains
    _PURE_ subroutine set_end(this)
       type(bitfield_t), intent(inout) :: this
       
-      integer :: ii, iii, j
+      integer :: ii, iii
+      integer(sk) :: j
       
       call indeces(this,this%ub,j,ii)
       do iii = ii+1, l-1
@@ -949,8 +963,9 @@ contains
    end subroutine   
    
    _PURE_ subroutine getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-      integer, intent(in) :: jstart, jstop, iistart, iistop, inc
-      integer, intent(inout) :: j
+      integer(sk), intent(in) :: jstart, jstop
+      integer, intent(in) :: iistart, iistop, inc
+      integer(sk), intent(inout) :: j
       integer, intent(inout) :: iir(l), iirs
       
       integer :: ii, delta
