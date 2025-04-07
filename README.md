@@ -155,66 +155,66 @@ bool = b                      ! not efficient
 
 In all the procedures below, the increment `inc` can be negative
 ```
-subroutine b%set( pos, bool )          ! not efficient
-    integer[(sk)], intent(in) :: pos
+subroutine b%set( i, bool )          ! not efficient
+    integer[(sk)], intent(in) :: i
     logical, intent(in) :: bool
 ```
-Sets the bit at index `pos` to the value of `bool`
+Sets the bit at index `i` to the value of `bool`
 
 ```
 subroutine b%set(bool)              ! efficient
-subroutine b%set(from,to,inc,bool)  ! efficient
+subroutine b%set(istart,istop,inc,bool)  ! efficient
     logical, intent(in) :: bool
-    integer[(sk)] :: from, to, inc
+    integer[(sk)] :: istart, istop, inc
 ```
-Sets the whole bit array, or the bits at indeces `from:to:inc`, to the value of `bool`
+Sets the whole bit array, or the bits at indeces `istart:istop:inc`, to the value of `bool`
 
 ```
 subroutine b%set(bool)              ! efficient
-subroutine b%set(from,to,inc,bool)  ! efficient
+subroutine b%set(istart,istop,inc,bool)  ! efficient
     logical, intent(in) :: bool(:)
-    integer[(sk)], intent(in) :: from, to, inc
+    integer[(sk)], intent(in) :: istart, istop, inc
 ```
-Sets the whole bit array, or the bits at indeces `from:to:inc`, to the values of `bool(:)`
+Sets the whole bit array, or the bits at indeces `istart:istop:inc`, to the values of `bool(:)`
 - the sizes must conform
 
 ```
-subroutine b%get(pos,bool)          ! not efficient
-logical function b%fget(pos)        ! not efficient
-    integer[(sk)], intent(in) :: pos
+subroutine b%get(i,bool)          ! not efficient
+logical function b%fget(i)        ! not efficient
+    integer[(sk)], intent(in) :: i
     logical, intent(out) :: bool        
 ```
-Gets the value of the bit at index `pos` (either in `bool` or in the function result)
+Gets the value of the bit at index `i` (either in `bool` or in the function result)
 
 ```
 subroutine b% get(bool)              ! not efficient
-subroutine b% get(from,to,inc,bool)  ! not efficient
+subroutine b% get(istart,istop,inc,bool)  ! not efficient
 function   b%fget()                  ! not efficient
-function   b%fget(from,to,inc)       ! not efficient
-    integer[(sk)], intent(in) :: from, to, inc
+function   b%fget(istart,istop,inc)       ! not efficient
+    integer[(sk)], intent(in) :: istart, istop, inc
     logical, intent(out) :: bool(:)
     logical :: fget(:)
 ```
-Gets the values of the whole bit array, or the bits at indeces `from:to:inc`, either in
+Gets the values of the whole bit array, or the bits at indeces `istart:istop:inc`, either in
 the argument `bool` or in a function result.
 - bool(:) must be allocated beforehand, and the sizes must conform
 
 ```
-subroutine b% extract(from,to,inc,c)     ! efficient if inc==1
-function   b%fextract(from,to,inc)       ! efficient if inc==1
-    integer[(sk)], intent(in) :: from, to, inc
+subroutine b% extract(istart,istop,inc,c)     ! efficient if inc==1
+function   b%fextract(istart,istop,inc)       ! efficient if inc==1
+    integer[(sk)], intent(in) :: istart, istop, inc
     type(bitfield_t), intent(out) :: c
     type(bitfield_t) :: fextract
 ```
-Extracts the bits at indeces `from:to:inc` to a new bit array
+Extracts the bits at indeces `istart:istop:inc` to a new bit array
 - if `c` is allocated beforehand, it is first deallocated
 
 ```
-subroutine b%replace(from,to,inc,c)     ! efficient if inc==1
-    integer[(sk)], intent(in) :: from, to, inc
+subroutine b%replace(istart,istop,inc,c)     ! efficient if inc==1
+    integer[(sk)], intent(in) :: istart, istop, inc
     type(bitfield_t), intent(in) :: c
 ```
-Replaces the bits of `b` at indeces `from:to:inc` from the bits of the `c`.
+Replaces the bits of `b` at indeces `istart:istop:inc` istart the bits of the `c`.
 - the sizes must conform
 
 
@@ -222,31 +222,31 @@ Replaces the bits of `b` at indeces `from:to:inc` from the bits of the `c`.
 
 ```
 integer function b%count()                 ! efficient
-integer function b%count(from,top,inc)     ! efficient if |inc|==1
-    integer[(sk)], intent(in) :: from, to, inc
+integer function b%count(istart,istop,inc)     ! efficient if |inc|==1
+    integer[(sk)], intent(in) :: istart, istop, inc
 ```
-Counts the number of bits equal to ".true." in the whole array, or at indeces `from:to:inc`
+Counts the number of bits equal to ".true." in the whole array, or at indeces `istart:istop:inc`
 
 ```
 logical function b%all()                ! efficient
-logical function b%all(from,to,inc)     ! efficient if |inc|==1
-    integer[(sk)], intent(in) :: from, to, inc
+logical function b%all(istart,istop,inc)     ! efficient if |inc|==1
+    integer[(sk)], intent(in) :: istart, istop, inc
 ```
-Is `.true.` iif all the bits of the array, or all the bits at indeces `from:to:inc`, are `.true.`
+Is `.true.` iif all the bits of the array, or all the bits at indeces `istart:istop:inc`, are `.true.`
 
 ```
 logical function b%any()                ! efficient
-logical function b%any(from,to,inc)     ! efficient if |inc|==1
-    integer[(sk)], intent(in) :: from, to, inc
+logical function b%any(istart,istop,inc)     ! efficient if |inc|==1
+    integer[(sk)], intent(in) :: istart, istop, inc
 ```
-Is `.true.` iif any bit of the array, or any bits at indeces `from:to:inc`, is `.true.`
+Is `.true.` iif any bit of the array, or any bits at indeces `istart:istop:inc`, is `.true.`
 
 ```
 subroutine b%not()                  ! efficient
-subroutine b%not(from,to,inc)       ! efficient if |inc|==1
-    integer[(sk)], intent(in) :: from, to, inc
+subroutine b%not(istart,istop,inc)       ! efficient if |inc|==1
+    integer[(sk)], intent(in) :: istart, istop, inc
 ```
-Negates all the bits of the array, or the bits at indeces `from:to:inc`
+Negates all the bits of the array, or the bits at indeces `istart:istop:inc`
 
 
 ## overloaded operators
