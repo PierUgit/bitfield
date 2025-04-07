@@ -24,6 +24,7 @@ implicit none
    public :: operator(.eqv.), operator(.neqv.)
    public :: BITFIELD_GROWONLY, BITFIELD_GROWSHRINK
 
+   integer, parameter :: k0 = kind(0)
    integer, parameter :: ik = selected_int_kind(r=18)
    integer, parameter :: sk = c_size_t
    integer, parameter :: l = bit_size(0_ik)
@@ -166,9 +167,9 @@ contains
       b_getub = this%ub
    end function 
 
-   _PURE_ subroutine b_setlb(this,lb)
+   _PURE_ subroutine b_setlb_sk(this,lb)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: lb
+      integer(sk), intent(in) :: lb
       
       if (this%n > 0) then
          this%lb = lb
@@ -176,21 +177,36 @@ contains
       end if
    end subroutine 
 
-   _PURE_ subroutine b_setub(this,ub)
+   _PURE_ subroutine b_setlb(this,lb)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: ub
+      integer, intent(in) :: lb
+      
+      call b_setlb_sk( this, int(lb,kind=sk) )
+   end subroutine 
+
+   _PURE_ subroutine b_setub_sk(this,ub)
+      class(bitfield_t), intent(inout) :: this
+      integer(sk), intent(in) :: ub
       
       if (this%n > 0) then
          this%lb = ub - this%n + 1
          this%ub = ub
       end if
    end subroutine 
-
-
-
-   _PURE_ subroutine b_allocate(this,n,lb,ub,mold,source,capacity)
+   
+   _PURE_ subroutine b_setub(this,ub)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: n, lb, ub, capacity
+      integer, intent(in) :: ub
+      
+      call b_setub_sk( this, int(ub,kind=sk) )
+   end subroutine 
+
+
+
+
+   _PURE_ subroutine b_allocate_sk(this,n,lb,ub,mold,source,capacity)
+      class(bitfield_t), intent(inout) :: this
+      integer(sk), intent(in) :: n, lb, ub, capacity
       type(bitfield_t), intent(in) :: mold, source
       optional :: n, lb, ub, mold, source, capacity
       
@@ -214,9 +230,25 @@ contains
          ub___ = source%ub
       end if
       call allocate_core( this, lb___, ub___ )
-      if (present(capacity)) call b_recap( this, capacity )
+      if (present(capacity)) call b_recap_sk( this, capacity )
       if (present(source)) this%a(0:source%jmax) = source%a(0:source%jmax)
       
+   end subroutine 
+
+   _PURE_ subroutine b_allocate(this,n,lb,ub,mold,source,capacity)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: n, lb, ub, capacity
+      type(bitfield_t), intent(in) :: mold, source
+      optional :: n, lb, ub, mold, source, capacity
+      
+      integer(sk), allocatable :: n___, lb___, ub___, capacity___
+      
+      if (present(n)) n___ = n
+      if (present(lb)) lb___ = lb
+      if (present(ub)) ub___ = ub
+      if (present(capacity)) capacity___ = capacity
+         
+      call b_allocate_sk( this, n___, lb___, ub___, mold, source, capacity___ )
    end subroutine 
 
    _PURE_ subroutine allocate_core(this,lb,ub)
@@ -228,7 +260,7 @@ contains
          this%lb = lb
          this%ub = ub
          allocate( this%a(0:(this%n-1)/l) )
-         this%jmax = ubound( this%a, 1 )
+         this%jmax = ubound( this%a, dim=1, kind=sk )
       else
          this%n = 0 
          allocate( this%a(0:0) )
@@ -264,29 +296,29 @@ contains
       this%strat = strat
    end subroutine
    
-   _PURE_ subroutine b_resize(this,lb,ub,keep)
+   _PURE_ subroutine b_resize_sk(this,lb,ub,keep)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: lb, ub
+      integer(sk), intent(in) :: lb, ub
       logical, intent(in) :: keep
       optional :: keep
       
-      integer :: n, si, newcap
+      integer(sk) :: n, newcap
 
       if (.not.b_allocated(this)) error stop "b_resize: bitfield is not allocated"
 
       n = ub - lb + 1
-      if (n > size(this%a) * l) then
-         newcap = 2 * size(this%a) * l
+      if (n > size(this%a,kind=sk) * l) then
+         newcap = 2 * size(this%a,kind=sk) * l
          do while (n > newcap)
             newcap = 2*newcap
          end do
-         call b_recap( this, newcap, keep )
-      else if (3*n <= size(this%a) * l .and. this%strat == BITFIELD_GROWSHRINK) then
-         newcap = size(this%a) * l / 2
+         call b_recap_sk( this, newcap, keep )
+      else if (3*n <= size(this%a,kind=sk) * l .and. this%strat == BITFIELD_GROWSHRINK) then
+         newcap = size(this%a,kind=sk) * l / 2
          do while (3*n <= newcap)
             newcap = newcap / 2
          end do
-         call b_recap( this, newcap, keep )
+         call b_recap_sk( this, newcap, keep )
       end if
       this%n = n
       this%lb = lb
@@ -294,13 +326,22 @@ contains
       this%jmax = (this%n-1) / l   
    end subroutine
    
-   _PURE_ subroutine b_recap(this,capacity,keep)
+   _PURE_ subroutine b_resize(this,lb,ub,keep)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: capacity
+      integer, intent(in) :: lb, ub
+      logical, intent(in) :: keep
+      optional :: keep
+      
+      call b_resize_sk( this, int(lb,kind=sk), int(ub,kind=sk), keep )  
+   end subroutine
+
+   _PURE_ subroutine b_recap_sk(this,capacity,keep)
+      class(bitfield_t), intent(inout) :: this
+      integer(sk), intent(in) :: capacity
       logical, intent(in) :: keep
       optional :: capacity, keep
       
-      integer :: newcap
+      integer(sk) :: newcap
       logical :: keep___
       integer(ik), allocatable :: atmp(:)
       
@@ -311,27 +352,38 @@ contains
       newcap = this%n
       if (present(capacity)) newcap = max( capacity, newcap )
       newcap = ((newcap-1)/l+1) * l
-      if (newcap /= size(this%a)*l) then
+      if (newcap /= size(this%a,kind=sk)*l) then
          allocate( atmp(0:(newcap-1)/l) )
          if (keep___) atmp(0:this%jmax) = this%a(0:this%jmax)
          call move_alloc( atmp, this%a )
       end if
    end subroutine
+   
+   _PURE_ subroutine b_recap(this,capacity,keep)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: capacity
+      logical, intent(in) :: keep
+      optional :: capacity, keep
       
+      integer(sk), allocatable :: capacity___
+      
+      call b_recap_sk( this, capacity___, keep )
+   end subroutine
+  
          
             
    _PURE_ subroutine b_append_b(this,that)
       class(bitfield_t), intent(inout) :: this
       type(bitfield_t), intent(in) :: that
       
-      integer :: ub
+      integer(sk) :: ub
 
 #ifdef DEBUG   
       if (.not.b_allocated(this)) error stop "b_append_b: bitfield is not allocated"
 #endif
       ub = this%ub
-      call b_resize( this, int(this%lb,kind=kind(0)), int(this%ub+that%n,kind=kind(0)), .true. )
-      call b_replace( this, ub+1, int(this%n,kind=kind(0)), 1, that )
+      call b_resize_sk( this, this%lb, this%ub+that%n, .true. )
+      call b_replace_sk( this, ub+1, this%n, 1_sk, that )
    end subroutine
          
    _PURE_ subroutine b_append_l0(this,v)
@@ -341,41 +393,53 @@ contains
 #ifdef DEBUG   
       if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
 #endif
-      call b_resize( this, int(this%lb,kind=kind(0)), int(this%ub+1,kind=kind(0)), .true. )
-      call b_set0( this, int(this%n,kind=kind(0)), v )
+      call b_resize_sk( this, this%lb, this%ub+1, .true. )
+      call b_set0_sk( this, this%n, v )
    end subroutine
    
    _PURE_ subroutine b_append_l1(this,v)
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v(:)
                   
-      integer :: ub
+      integer(sk) :: ub
 
 #ifdef DEBUG   
       if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
 #endif
       ub = this%ub
-      call b_resize( this, int(this%lb,kind=kind(0)), int(this%ub+size(v),kind=kind(0)), .true. )
-      call b_setrange1( this, ub+1, int(this%n,kind=kind(0)), 1, v )
+      call b_resize_sk( this, this%lb, this%ub+size(v,kind=sk), .true. )
+      call b_setrange1_sk( this, ub+1, this%n, 1_sk, v )
    end subroutine
 
-   _PURE_ subroutine b_drop(this,k)
+   _PURE_ subroutine b_drop_sk(this,k)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: k
+      integer(sk), intent(in) :: k
       optional :: k
       
 #ifdef DEBUG   
       if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
 #endif
       if (present(k)) then
-         call b_resize( this, int(this%lb,kind=kind(0)), int(max(this%ub-k,0),kind=kind(0)), .true. )
+         call b_resize_sk( this, this%lb, max(this%ub-k,0), .true. )
       else
-         call b_resize( this,  int(this%lb,kind=kind(0)), int(max(this%ub-1,0),kind=kind(0)), .true. )
+         call b_resize_sk( this, this%lb, max(this%ub-1,0), .true. )
       end if
                   
    end subroutine
       
-   
+   _PURE_ subroutine b_drop(this,k)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: k
+      optional :: k
+      
+      integer(sk), allocatable :: k___
+      
+      if (present(k)) k___ = k
+      call b_drop_sk( this, k___ )
+                  
+   end subroutine
+ 
+
    
    _PURE_ subroutine assign_b2b(this,that)
       class(bitfield_t), intent(inout) :: this
@@ -399,8 +463,10 @@ contains
       class(bitfield_t), intent(inout) :: this
       logical, allocatable, intent(in) :: v(:)
       
-      if (b_allocated(this) .and. this%getsize() /= size(v)) call b_deallocate(this)
-      if (.not.b_allocated(this)) call allocate_core(this,lbound(v,1)*1_sk,ubound(v,1)*1_sk)
+      if (b_allocated(this) .and. this%getsize() /= size(v,kind=sk)) &
+         call b_deallocate(this)
+      if (.not.b_allocated(this)) &
+         call allocate_core(this,lbound(v,dim=1,kind=sk),ubound(v,dim=1,kind=sk))
       call b_setall1(this,v)
    end subroutine 
 
@@ -408,28 +474,36 @@ contains
       logical, allocatable, intent(out) :: v(:)
       type(bitfield_t), intent(in) :: this
       
-      if (allocated(v) .and. this%getsize() /= size(v)) deallocate(v)
-      if (.not.allocated(v)) allocate( v(this%getlb():this%getub()) )
+      if (allocated(v) .and. this%getsize() /= size(v,kind=sk)) deallocate(v)
+      if (.not.allocated(v)) allocate( v(this%lb:this%ub) )
       call b_getall(this,v)
    end subroutine 
 
    
 
-   _PURE_ subroutine b_set0(this,i,v)
+   _PURE_ subroutine b_set0_sk(this,i,v)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: i
+      integer(sk), intent(in) :: i
       logical, intent(in) :: v
       
       integer :: ii
       integer(sk) :: j
       
       ! no runtime check, as it would hurt the performances for a single bit set
-      call indeces(this,i*1_sk,j,ii)
+      call indeces(this,i,j,ii)
       if (v) then
          this%a(j) = ibset(this%a(j),ii)
       else
          this%a(j) = ibclr(this%a(j),ii)
       end if
+   end subroutine 
+
+   _PURE_ subroutine b_set0(this,i,v)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: i
+      logical, intent(in) :: v
+      
+      call b_set0_sk( this, int(i,kind=sk), v )
    end subroutine 
 
    _PURE_ subroutine b_setall0(this,v)
@@ -440,18 +514,18 @@ contains
       this%a(:) = merge(ones,zeros,v)
    end subroutine 
 
-   _PURE_ recursive subroutine b_setrange0(this,istart,istop,inc,v)
+   _PURE_ recursive subroutine b_setrange0_sk(this,istart,istop,inc,v)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: istart, istop, inc
+      integer(sk), intent(in) :: istart, istop, inc
       logical, intent(in) :: v
       
       integer(ik) :: a
-      integer :: iistart, iistop, i, k
-      integer(sk) :: jstart, jstop, j
+      integer :: iistart, iistop, k
+      integer(sk) :: jstart, jstop, j, i
       integer :: iir(l), iirs
       
       if (inc < 0) then
-         call b_setrange0(this,istop+mod(istart-istop,-inc),istart,-inc,v)
+         call b_setrange0_sk(this,istop+mod(istart-istop,-inc),istart,-inc,v)
          return
       end if
       
@@ -462,8 +536,8 @@ contains
       
       if (inc == 1) then
          a = merge(ones,zeros,v)
-         call indeces(this,istart*1_sk,jstart,iistart)
-         call indeces(this,istop *1_sk,jstop ,iistop)
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          if (jstart == jstop) then
             call mvbits( a, 0, iistop-iistart+1, this%a(jstart), iistart )
          else
@@ -472,8 +546,8 @@ contains
             call mvbits(a,0,iistop+1,this%a(jstop),0)
          endif
       else if (inc <= l/minbatch) then
-         call indeces(this,istart*1_sk,jstart,iistart)
-         call indeces(this,istop *1_sk,jstop ,iistop)
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          j = jstart
          iirs = 0
          do
@@ -487,30 +561,40 @@ contains
          end do
       else
          do i = istart, istop, inc
-            call b_set0(this,i,v)
+            call b_set0_sk(this,i,v)
          end do
       end if
+   end subroutine 
+
+   _PURE_ subroutine b_setrange0(this,istart,istop,inc,v)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: istart, istop, inc
+      logical, intent(in) :: v
+      
+      call b_setrange0_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
+                         , int(inc,kind=sk),v)
    end subroutine 
    
    _PURE_ subroutine b_setall1(this,v)
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v(:)
       
-      call b_setrange1(this,int(this%lb,kind=kind(0)),int(this%ub,kind=kind(0)),1,v)
+      call b_setrange1_sk( this, this%lb, this%ub, 1_sk, v )
    end subroutine 
 
-   _PURE_ subroutine b_setrange1(this,istart,istop,inc,v)
+   _PURE_ subroutine b_setrange1_sk(this,istart,istop,inc,v)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: istart, istop, inc
+      integer(sk), intent(in) :: istart, istop, inc
       logical, intent(in) :: v(:)
       
-      integer :: k, j, i, iistart, iistop, jstart, jstop, iv
+      integer :: iistart, iistop
+      integer(sk) :: j, i, jstart, jstop, iv
       integer :: iir(l), iirs
       integer(ik) :: a
       
       if (.not.b_allocated(this)) error stop "b_setrange1: bitfield is not allocated"
       if (this%n == 0 ) then
-         if ((istop-istart)*inc >=0) error stop "b_setrange1(): out of bound indeces" 
+         if ((istop-istart)*inc >= 0) error stop "b_setrange1(): out of bound indeces" 
          return
       else
          if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
@@ -521,48 +605,65 @@ contains
       iv = 0
       do i = istart, istop, inc
          iv = iv+1
-         call b_set0( this, i, v(iv) )
+         call b_set0_sk( this, i, v(iv) )
       end do
+   end subroutine 
+
+   _PURE_ subroutine b_setrange1(this,istart,istop,inc,v)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: istart, istop, inc
+      logical, intent(in) :: v(:)
+      
+      call b_setrange1_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
+                         , int(inc,kind=sk), v )
    end subroutine 
 
    
 
-   _PURE_ subroutine b_get0(this,i,v)
+   _PURE_ subroutine b_get0_sk(this,i,v)
       class(bitfield_t), intent(in) :: this
-      integer, intent(in) :: i
+      integer(sk), intent(in) :: i
       logical, intent(out) :: v
       
       integer :: ii
       integer(sk) :: j
       
-      call indeces(this,i*1_sk,j,ii)
+      call indeces(this,i,j,ii)
       v = btest(this%a(j),ii)
    end subroutine 
    
+   _PURE_ subroutine b_get0(this,i,v)
+      class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: i
+      logical, intent(out) :: v
+      
+      call b_get0_sk( this, int(i,kind=sk), v )
+   end subroutine 
+
    _PURE_ subroutine b_getall(this,v)
       class(bitfield_t), intent(in) :: this
       logical, intent(out) :: v(:)
       
-      if (this%getsize() /= size(v)) error stop "b_getall(): the sizes differ" 
-      call b_getrange(this,int(this%lb,kind=kind(0)),int(this%ub,kind=kind(0)),1,v)
+      if (this%getsize() /= size(v,kind=sk)) error stop "b_getall(): the sizes differ" 
+      call b_getrange_sk( this, this%lb, this%ub, 1_sk, v )
    end subroutine 
    
-   _PURE_ subroutine b_getrange(this,istart,istop,inc,v)
+   _PURE_ subroutine b_getrange_sk(this,istart,istop,inc,v)
       class(bitfield_t), intent(in) :: this
-      integer, intent(in) :: istart, istop, inc
+      integer(sk), intent(in) :: istart, istop, inc
       logical, intent(out) :: v(:)
       
-      integer :: i1, i2, iistart, iistop, i, iv
-      integer(sk) :: j, jstart, jstop
+      integer :: iistart, iistop
+      integer(sk) :: i, i1, i2, iv, j, jstart, jstop
       integer :: iir(l), iirs
       
-      if (sign(1,istop-istart)*sign(1,inc) < 0) return
+      if (sign(1_sk,istop-istart)*sign(1_sk,inc) < 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_getrange1(): out of bound indeces" 
 
       if (0 < inc .and. inc <= l/minbatch) then
-         call indeces( this, istart*1_sk, jstart, iistart)
-         call indeces( this, istop *1_sk, jstop , iistop)
+         call indeces( this, istart, jstart, iistart)
+         call indeces( this, istop , jstop , iistop )
          j = jstart
          i1 = 1
          iirs = 0
@@ -574,10 +675,10 @@ contains
             i1 = i2+1
          end do
       else if (0 < -inc .and. -inc <= l/minbatch) then
-         call indeces( this, istart*1_sk,                       jstart, iistart )
-         call indeces( this, istop *1_sk+mod(istart-istop,-inc), jstop,  iistop )
+         call indeces( this, istart,                         jstart, iistart )
+         call indeces( this, istop + mod(istart-istop,-inc), jstop,  iistop  )
          j = jstop
-         i1 = size(v)
+         i1 = size(v,kind=sk)
          iirs = 0
          do
             call getiirs(jstop,jstart,iistop,iistart,-inc,j,iir,iirs)
@@ -590,11 +691,28 @@ contains
          iv = 0
          do i = istart, istop, inc
             iv = iv+1
-            call b_get0(this,i,v(iv))
+            call b_get0_sk(this,i,v(iv))
          end do
       end if
    end subroutine 
          
+   _PURE_ subroutine b_getrange(this,istart,istop,inc,v)
+      class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: istart, istop, inc
+      logical, intent(out) :: v(:)
+      
+      call b_getrange_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
+                        , int(inc,kind=sk), v )
+   end subroutine 
+
+   _PURE_ function b_fget0_sk(this,i) result(v)
+      class(bitfield_t), intent(in) :: this
+      integer(sk), intent(in) :: i
+      logical :: v
+      
+      call b_get0_sk(this,i,v)
+   end function 
+
    _PURE_ function b_fget0(this,i) result(v)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: i
@@ -607,9 +725,21 @@ contains
       class(bitfield_t), intent(in) :: this
       logical, allocatable:: v(:)
       
-      allocate( v(this%getlb():this%getub()) )
+      allocate( v(this%lb:this%ub) )
       call b_getall(this,v)
    end function 
+
+   _PURE_ function b_fgetrange_sk(this,istart,istop,inc) result(v)
+      class(bitfield_t), intent(in) :: this
+      integer(sk), intent(in) :: istart, istop, inc
+      logical, allocatable :: v(:)
+      
+      integer(sk) :: n
+      
+      n = abs((istop-istart)/inc+1)
+      allocate( v(n) )
+      call b_getrange_sk( this, istart, istop, inc, v )   
+   end function
 
    _PURE_ function b_fgetrange(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
@@ -625,21 +755,21 @@ contains
 
 
    
-   _PURE_ subroutine b_replace(this,istart,istop,inc,that)
+   _PURE_ subroutine b_replace_sk(this,istart,istop,inc,that)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: istart, istop, inc
+      integer(sk), intent(in) :: istart, istop, inc
       type(bitfield_t), intent(in) :: that
       
-      integer :: k, i, iistart, iistop, jsource, iisource, isource
-      integer(sk) :: j, jstart, jstop
+      integer :: iistart, iistop, iisource
+      integer(sk) :: i, j, jstart, jstop, jsource, isource
       integer :: iir(l), iirs
       
-      if (that%getsize() <= 0) return
+      if (that%n <= 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_replace(): out of bound bounds" 
       
-      call indeces(this,istart*1_sk,jstart,iistart)
-      call indeces(this,istop *1_sk,jstop ,iistop)
+      call indeces(this,istart,jstart,iistart)
+      call indeces(this,istop ,jstop ,iistop)
       if (inc == 1) then
          if (jstart == jstop) then
             call mvbits(that%a(0),0,iistop-iistart+1,this%a(jstart),iistart)
@@ -657,20 +787,29 @@ contains
          isource = 0
          do i = istart, istop, inc
             isource = isource + 1
-            call b_set0( this, i, b_fget0(that,isource) )
+            call b_set0_sk( this, i, b_fget0_sk(that,isource) )
          end do      
       end if
    end subroutine 
 
-
-
-   _PURE_ subroutine b_extract(this,istart,istop,inc,that)
-      class(bitfield_t), intent(in) :: this
+   _PURE_ subroutine b_replace(this,istart,istop,inc,that)
+      class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
+      type(bitfield_t), intent(in) :: that
+      
+      call b_replace_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
+                       , int(inc,kind=sk), that )
+   end subroutine 
+
+
+
+   _PURE_ subroutine b_extract_sk(this,istart,istop,inc,that)
+      class(bitfield_t), intent(in) :: this
+      integer(sk), intent(in) :: istart, istop, inc
       type(bitfield_t), intent(inout) :: that
       
-      integer :: i, iistart, iistop, idest, iidest
-      integer(sk) :: jstart, jstop, j, jdest, n
+      integer :: iistart, iistop, iidest
+      integer(sk) :: i, jstart, jstop, j, jdest, n, idest
       integer :: iir(l), iirs
       logical :: v(l)
       
@@ -686,8 +825,8 @@ contains
       end if
       
       call allocate_core(that,1_sk,n)
-      call indeces(this,istart*1_sk,jstart,iistart)
-      call indeces(this,istop *1_sk,jstop ,iistop)
+      call indeces(this,istart,jstart,iistart)
+      call indeces(this,istop ,jstop ,iistop)
       if (inc == 1) then
          if (jstart == jstop) then
             call mvbits(this%a(jstart),iistart,iistop-iistart+1,that%a(0),0)
@@ -705,11 +844,28 @@ contains
          idest = 0
          do i = istart, istop, inc
             idest = idest + 1
-            call b_set0( that, idest, b_fget0(this,i) )
+            call b_set0_sk( that, idest, b_fget0_sk(this,i) )
          end do
       end if
    end subroutine 
-   
+
+   _PURE_ subroutine b_extract(this,istart,istop,inc,that)
+      class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: istart, istop, inc
+      type(bitfield_t), intent(inout) :: that
+      
+      call b_extract_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
+                       , int(inc,kind=sk), that )
+   end subroutine 
+
+   _PURE_ function b_fextract_sk(this,istart,istop,inc) result(that)
+      class(bitfield_t), intent(in) :: this
+      integer(sk), intent(in) :: istart, istop, inc
+      type(bitfield_t) :: that
+      
+      call b_extract_sk(this,istart,istop,inc,that)
+   end function
+      
    _PURE_ function b_fextract(this,istart,istop,inc) result(that)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
@@ -717,30 +873,29 @@ contains
       
       call b_extract(this,istart,istop,inc,that)
    end function
-      
    
 
    _PURE_ logical function b_allall(this)
       class(bitfield_t), intent(in) :: this
       
-      b_allall = b_allrange(this,int(this%lb,kind=kind(0)),int(this%ub,kind=kind(0)),1)
+      b_allall = b_allrange_sk( this, this%lb, this%ub, 1_sk )
    end function 
 
-   _PURE_ recursive logical function b_allrange(this,istart,istop,inc) result(v)
+   _PURE_ recursive logical function b_allrange_sk(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
-      integer, intent(in) :: istart, istop, inc
+      integer(sk), intent(in) :: istart, istop, inc
       
-      integer :: kstart, kstop
+      integer(sk) :: kstart, kstop
       type(bitfield_t) :: bb
    
       if (inc < 0) then
-         v = b_allrange(this,istop+mod(istart-istop,-inc),istart,-inc)
+         v = b_allrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
          v = .true.
          kstart = istart
          do while (kstart <= istop)
             kstop = min( kstart + (ll-1)*inc, istop )
-            call b_extract( this, kstart, kstop, inc, bb )
+            call b_extract_sk( this, kstart, kstop, inc, bb )
             call set_end( bb )
             v = v .and. all( bb%a == ones )
             if (.not.v) return
@@ -750,29 +905,35 @@ contains
 
    end function 
 
+   _PURE_ recursive logical function b_allrange(this,istart,istop,inc) result(v)
+      class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: istart, istop, inc
+      
+      v = b_allrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) )
+   end function 
 
 
    _PURE_ logical function b_anyall(this)
       class(bitfield_t), intent(in) :: this
       
-      b_anyall = b_anyrange(this,int(this%lb,kind=kind(0)),int(this%ub,kind=kind(0)),1)
+      b_anyall = b_anyrange_sk( this, this%lb, this%ub, 1_sk )
    end function 
 
-   _PURE_ recursive logical function b_anyrange(this,istart,istop,inc) result(v)
+   _PURE_ recursive logical function b_anyrange_sk(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
-      integer, intent(in) :: istart, istop, inc
+      integer(sk), intent(in) :: istart, istop, inc
       
-      integer :: kstart, kstop
+      integer(sk) :: kstart, kstop
       type(bitfield_t) :: bb
    
       if (inc < 0) then
-         v = b_anyrange(this,istop+mod(istart-istop,-inc),istart,-inc)
+         v = b_anyrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
          v = .false.
          kstart = istart
          do while (kstart <= istop)
             kstop = min( kstart + (ll-1)*inc, istop )
-            call b_extract( this, kstart, kstop, inc, bb )
+            call b_extract_sk( this, kstart, kstop, inc, bb )
             call clear_end( bb )
             v = v .or. any( bb%a /= zeros )
             if (v) return
@@ -782,29 +943,36 @@ contains
 
    end function 
 
+   _PURE_ recursive logical function b_anyrange(this,istart,istop,inc) result(v)
+      class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: istart, istop, inc
+      
+      v = b_anyrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) )
+   end function 
+
 
 
    _PURE_ integer function b_countall(this) result(v)
       class(bitfield_t), intent(in) :: this
       
-      v = b_countrange(this,int(this%lb,kind=kind(0)),int(this%ub,kind=kind(0)),1)
+      v = b_countrange_sk( this, this%lb, this%ub, 1_sk )  
    end function 
 
-   _PURE_ recursive integer function b_countrange(this,istart,istop,inc) result(v)
+   _PURE_ recursive integer function b_countrange_sk(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
-      integer, intent(in) :: istart, istop, inc
+      integer(sk), intent(in) :: istart, istop, inc
       
-      integer :: kstart, kstop
+      integer(sk) :: kstart, kstop
       type(bitfield_t) :: bb
    
       if (inc < 0) then
-         v = b_countrange(this,istop+mod(istart-istop,-inc),istart,-inc)
+         v = b_countrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
          v = 0
          kstart = istart
          do while (kstart <= istop)
             kstop = min( kstart + (ll-1)*inc, istop )
-            call b_extract( this, kstart, kstop, inc, bb )
+            call b_extract_sk( this, kstart, kstop, inc, bb )
             call clear_end( bb )
             v = v + sum( popcnt( bb%a ) )
             kstart = kstop + inc
@@ -813,6 +981,14 @@ contains
 
    end function 
    
+   _PURE_ recursive integer function b_countrange(this,istart,istop,inc) result(v)
+      class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: istart, istop, inc
+      
+      v = b_countrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) )
+   end function 
+
+
    
    _PURE_ subroutine b_notall(this)
       class(bitfield_t), intent(inout) :: this
@@ -820,26 +996,33 @@ contains
       this%a(:) = not( this%a )
    end subroutine
    
-   _PURE_ recursive subroutine b_notrange(this,istart,istop,inc)
+   _PURE_ recursive subroutine b_notrange_sk(this,istart,istop,inc)
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: istart, istop, inc
+      integer(sk), intent(in) :: istart, istop, inc
       
-      integer :: kstart, kstop
+      integer(sk) :: kstart, kstop
       type(bitfield_t) :: bb
    
       if (inc < 0) then
-         call b_notrange(this,istop+mod(istart-istop,-inc),istart,-inc)
+         call b_notrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
          kstart = istart
          do while (kstart <= istop)
             kstop = min( kstart + (ll-1)*inc, istop )
-            call b_extract( this, kstart, kstop, inc, bb )
+            call b_extract_sk( this, kstart, kstop, inc, bb )
             bb%a(:) = not( bb%a )
-            call b_replace( this, kstart, kstop, inc, bb )
+            call b_replace_sk( this, kstart, kstop, inc, bb )
             kstart = kstop + inc
          end do         
       end if      
 
+   end subroutine 
+
+   _PURE_ recursive subroutine b_notrange(this,istart,istop,inc)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: istart, istop, inc
+      
+      call b_notrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) )  
    end subroutine 
 
    _PURE_ function b_fnotall(this) result(b)
@@ -963,8 +1146,8 @@ contains
    end subroutine   
    
    _PURE_ subroutine getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-      integer(sk), intent(in) :: jstart, jstop
-      integer, intent(in) :: iistart, iistop, inc
+      integer(sk), intent(in) :: jstart, jstop, inc
+      integer, intent(in) :: iistart, iistop
       integer(sk), intent(inout) :: j
       integer, intent(inout) :: iir(l), iirs
       
