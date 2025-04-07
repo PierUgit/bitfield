@@ -1,15 +1,17 @@
-# bitfield v0.2.0
+# bitfield v0.3.0
 
 Implementation of a resizable 1-bit logical array, stored in an integer array under 
 the hood. Not cpu-efficient at all, but memory efficient.
 
 Limitations:
 - 1D only
-- size currently limited to a default integer
 
 Beta version
 
 `type(bitfield_t) :: b` holds the resizable array of bits
+
+The interfaces of the procedures below are written for both the default integer and the
+`integer(kind=bitfield_size)` (which is likely the same as `integer(kind=int64)`). In the descriptions below one use `integer, parameter :: sk = bitfield_size`
 
 ## basic manipulations
 
@@ -19,15 +21,13 @@ logical function bitfield_check()
 Returns `.true.` if the `integer` type behaves as expected (e.g. that all bits are $0$ when the integer value is $0$).
 
 ```
-subroutine b%allocate( n [, capacity] )
 subroutine b%allocate( lb, ub [, capacity] )
 subroutine b%allocate( mold [, capacity] )
 subroutine b%allocate( source [, capacity] )
-    integer, intent(in) :: n, lb, ub, capacity
+    integer[(sk)], intent(in) :: lb, ub, capacity
     type(bitfield_t) :: mold, source
 ```
-Allocates an array of `n bits (the lower bound is $1$ by default), or of `(ub-lb+1) bits,
-or of the same shape as `mold` or as `source`. 
+Allocates an array of `(ub-lb+1) bits, or of the same shape as `mold` or as `source`. 
 - If `source` is coded, the content of `source` is copied to `b`.
 - If `capacity` is coded, `capacity` bits are actually reserved, allowing further 
   increase of the size without having to reallocate and copy the data. If `capacity` is
@@ -41,13 +41,13 @@ Deallocates the array of bits.
 ```
 logical function b%allocated()
 ```
-Returns .true. iif `b`is allocated
+Returns .true. iif `b` is allocated
 
 ```
-integer function b%getsize()
-integer function b%getcapa()
-integer function b%getlb()
-integer function b%getub() 
+integer(sk) function b%getsize()
+integer(sk) function b%getcapa()
+integer(sk) function b%getlb()
+integer(sk) function b%getub() 
 ```
 Return respectively the size, the capacity, the lower bound, and the upper bound,
 of the array.
@@ -55,7 +55,7 @@ of the array.
 ```
 subroutine b%setlb(lb)
 subroutine b%setub(ub)
-    integer :: lb, ub
+    integer[(sk)] :: lb, ub
 ```
 Reset respectively the lower bound and the upper bound of the array.
 - The size is unchanged!
@@ -74,7 +74,7 @@ behavior). Optionaly, it can also decrease.
 
 ```
 subroutine b%resize( lb, ub [, keep])
-    integer, intent(in) :: lb, ub
+    integer[(sk)], intent(in) :: lb, ub
     logical, intent(in) :: keep
 ```
 Dynamically resizes the array by giving new lower and upper bounds. No reallocation is 
@@ -84,7 +84,7 @@ needed if the new size is smaller or equal to the current capacity.
   
 ```
 subroutine b%recap( [capacity], [keep] )
-    integer, intent(in) :: capacity
+    integer[(sk)], intent(in) :: capacity
     logical, intent(in) :: keep
 ```
 Sets a new capacity. This will most of time trigger a reallocation.
@@ -106,7 +106,7 @@ Appends to bit array `b`: the bit array `c`, or the scalar `bool0`, or the array
 
 ```
 subroutine b%drop( [k] )
-    integer :: k
+    integer[(sk)] :: k
 ```
 Drop the `k` last elements of the bit array. If `k` is not coded, the last element is 
 dropped. The size and capacity of `b` are modified as needed.
@@ -156,7 +156,7 @@ bool = b                      ! not efficient
 In all the procedures below, the increment `inc` can be negative
 ```
 subroutine b%set( pos, bool )          ! not efficient
-    integer, intent(in) :: pos
+    integer[(sk)], intent(in) :: pos
     logical, intent(in) :: bool
 ```
 Sets the bit at index `pos` to the value of `bool`
@@ -165,7 +165,7 @@ Sets the bit at index `pos` to the value of `bool`
 subroutine b%set(bool)              ! efficient
 subroutine b%set(from,to,inc,bool)  ! efficient
     logical, intent(in) :: bool
-    integer :: from, to, inc
+    integer[(sk)] :: from, to, inc
 ```
 Sets the whole bit array, or the bits at indeces `from:to:inc`, to the value of `bool`
 
@@ -173,7 +173,7 @@ Sets the whole bit array, or the bits at indeces `from:to:inc`, to the value of 
 subroutine b%set(bool)              ! efficient
 subroutine b%set(from,to,inc,bool)  ! efficient
     logical, intent(in) :: bool(:)
-    integer, intent(in) :: from, to, inc
+    integer[(sk)], intent(in) :: from, to, inc
 ```
 Sets the whole bit array, or the bits at indeces `from:to:inc`, to the values of `bool(:)`
 - the sizes must conform
@@ -181,7 +181,7 @@ Sets the whole bit array, or the bits at indeces `from:to:inc`, to the values of
 ```
 subroutine b%get(pos,bool)          ! not efficient
 logical function b%fget(pos)        ! not efficient
-    integer, intent(in) :: pos
+    integer[(sk)], intent(in) :: pos
     logical, intent(out) :: bool        
 ```
 Gets the value of the bit at index `pos` (either in `bool` or in the function result)
@@ -191,7 +191,7 @@ subroutine b% get(bool)              ! not efficient
 subroutine b% get(from,to,inc,bool)  ! not efficient
 function   b%fget()                  ! not efficient
 function   b%fget(from,to,inc)       ! not efficient
-    integer, intent(in) :: from, to, inc
+    integer[(sk)], intent(in) :: from, to, inc
     logical, intent(out) :: bool(:)
     logical :: fget(:)
 ```
@@ -202,7 +202,7 @@ the argument `bool` or in a function result.
 ```
 subroutine b% extract(from,to,inc,c)     ! efficient if inc==1
 function   b%fextract(from,to,inc)       ! efficient if inc==1
-    integer, intent(in) :: from, to, inc
+    integer[(sk)], intent(in) :: from, to, inc
     type(bitfield_t), intent(out) :: c
     type(bitfield_t) :: fextract
 ```
@@ -211,7 +211,7 @@ Extracts the bits at indeces `from:to:inc` to a new bit array
 
 ```
 subroutine b%replace(from,to,inc,c)     ! efficient if inc==1
-    integer, intent(in) :: from, to, inc
+    integer[(sk)], intent(in) :: from, to, inc
     type(bitfield_t), intent(in) :: c
 ```
 Replaces the bits of `b` at indeces `from:to:inc` from the bits of the `c`.
@@ -223,27 +223,28 @@ Replaces the bits of `b` at indeces `from:to:inc` from the bits of the `c`.
 ```
 integer function b%count()                 ! efficient
 integer function b%count(from,top,inc)     ! efficient if |inc|==1
-    integer, intent(in) :: from, to, inc
+    integer[(sk)], intent(in) :: from, to, inc
 ```
 Counts the number of bits equal to ".true." in the whole array, or at indeces `from:to:inc`
 
 ```
 logical function b%all()                ! efficient
 logical function b%all(from,to,inc)     ! efficient if |inc|==1
-    integer, intent(in) :: from, to, inc
+    integer[(sk)], intent(in) :: from, to, inc
 ```
 Is `.true.` iif all the bits of the array, or all the bits at indeces `from:to:inc`, are `.true.`
 
 ```
 logical function b%any()                ! efficient
 logical function b%any(from,to,inc)     ! efficient if |inc|==1
-    integer, intent(in) :: from, to, inc
+    integer[(sk)], intent(in) :: from, to, inc
 ```
 Is `.true.` iif any bit of the array, or any bits at indeces `from:to:inc`, is `.true.`
 
 ```
 subroutine b%not()                  ! efficient
 subroutine b%not(from,to,inc)       ! efficient if |inc|==1
+    integer[(sk)], intent(in) :: from, to, inc
 ```
 Negates all the bits of the array, or the bits at indeces `from:to:inc`
 

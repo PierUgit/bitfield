@@ -18,7 +18,7 @@ implicit none
 
    private
 
-   public :: bitfield_t, bitfield_check
+   public :: bitfield_t, bitfield_check, bitfield_size
    public :: assignment(=), operator(==), operator(/=)
    public :: operator(.not.), operator(.and.), operator(.or.)
    public :: operator(.eqv.), operator(.neqv.)
@@ -26,7 +26,7 @@ implicit none
 
    integer, parameter :: k0 = kind(0)
    integer, parameter :: ik = selected_int_kind(r=18)
-   integer, parameter :: sk = c_size_t
+   integer, parameter :: sk = c_size_t, bitfield_size
    integer, parameter :: l = bit_size(0_ik)
    integer, parameter :: l2l = nint(log(real(l))/log(2.0))
    integer, parameter :: ll = 64*l
