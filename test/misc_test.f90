@@ -92,7 +92,7 @@ write(*,*) "PASSED"
 write(*,"(A40)",advance="no") "bitfield tests (setrange0 10**9 inc=1)..."
 
 call tictoc()
-call bi%allocate(10**7+1)
+call bi%allocate(1,10**7+1)
 call bi%set(10**7-1,1,-1,.true.)
 call bi%resize(1,10**9)
 call bi%set(10**7,10**9,1,.false.)

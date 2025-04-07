@@ -46,12 +46,21 @@ implicit none
       integer :: strat = BITFIELD_GROWONLY
    contains
       private
-      procedure, public :: allocate => b_allocate
+      procedure :: allocate2_k0 => b_allocate2
+      procedure :: allocate2_sk => b_allocate2_sk
+      procedure :: allocate3    => b_allocate3
+      generic, public :: allocate => allocate2_k0, allocate2_sk, &
+                                     allocate3
       procedure, public :: deallocate => b_deallocate
       procedure, public :: allocated => b_allocated
       
-      procedure, public :: resize => b_resize
-      procedure, public :: recap => b_recap
+      procedure :: resize_k0 => b_resize
+      procedure :: resize_sk => b_resize_sk
+      generic, public :: resize => resize_k0, resize_sk
+      procedure :: recap0    => b_recap0
+      procedure :: recap1_k0 => b_recap1
+      procedure :: recap1_sk => b_recap1_sk
+      generic, public :: recap => recap0,recap1_k0, recap1_sk
       procedure, public :: set_dynamic_capacity => b_set_dynamic_capacity
       
       procedure :: append_b => b_append_b
@@ -59,7 +68,10 @@ implicit none
       procedure :: append_l1 => b_append_l1
       generic, public :: append => append_b, append_l0, append_l1
       
-      procedure, public :: drop => b_drop
+      procedure :: drop0 => b_drop0
+      procedure :: drop_k0 => b_drop
+      procedure :: drop_sk => b_drop_sk
+      generic, public :: drop => drop_k0, drop_sk
    
       procedure, public :: getsize => b_getsize
       procedure, public :: getcapacity => b_getcapacity
@@ -69,40 +81,61 @@ implicit none
       procedure, public :: setub => b_setub
    
       procedure :: set0 => b_set0
+      procedure :: set0_sk => b_set0_sk
       procedure :: setall0 => b_setall0
       procedure :: setrange0 => b_setrange0
+      procedure :: setrange0_sk => b_setrange0_sk
       procedure :: setall1 => b_setall1
       procedure :: setrange1 => b_setrange1
-      generic, public:: set => set0, setall0, setall1, setrange0, setrange1
+      procedure :: setrange1_sk => b_setrange1_sk
+      generic, public:: set => set0, setall0, setall1, setrange0, setrange1, &
+                               set0_sk, setrange0_sk, setrange1_sk
       
       procedure :: get0 => b_get0
+      procedure :: get0_sk => b_get0_sk
       procedure :: getall => b_getall
       procedure :: getrange => b_getrange
-      generic, public :: get => get0, getall, getrange
+      procedure :: getrange_sk => b_getrange_sk
+      generic, public :: get => get0, getall, getrange, get0_sk, getrange_sk
    
       procedure :: fget0 => b_fget0
+      procedure :: fget0_sk => b_fget0_sk
       procedure :: fgetall => b_fgetall
       procedure :: fgetrange => b_fgetrange
-      generic, public :: fget => fget0, fgetall, fgetrange
+      procedure :: fgetrange_sk => b_fgetrange_sk
+      generic, public :: fget => fget0, fgetall, fgetrange, fget0_sk, fgetrange_sk
    
       procedure :: countall => b_countall
       procedure :: countrange => b_countrange
-      generic, public :: count => countall, countrange
+      procedure :: countrange_sk => b_countrange_sk
+      generic, public :: count => countall, countrange, countrange_sk
    
       procedure :: allall => b_allall
       procedure :: allrange => b_allrange
-      generic, public  :: all => allall, allrange
+      procedure :: allrange_sk => b_allrange_sk
+      generic, public  :: all => allall, allrange, allrange_sk
       procedure :: anyall => b_anyall
       procedure :: anyrange => b_anyrange
-      generic, public :: any => anyall, anyrange
+      procedure :: anyrange_sk => b_anyrange_sk
+      generic, public :: any => anyall, anyrange, anyrange_sk
    
-      procedure, public :: extract => b_extract
-      procedure, public :: fextract => b_fextract
-      procedure, public :: replace => b_replace   
+      procedure :: extract_k0 => b_extract
+      procedure :: extract_sk => b_extract_sk
+      generic, public :: extract => extract_k0, extract_sk
+      procedure :: fextract_k0 => b_fextract
+      procedure :: fextract_sk => b_fextract_sk
+      generic, public :: fextract => fextract_k0, fextract_sk
+      procedure :: replace_k0 => b_replace   
+      procedure :: replace_sk => b_replace_sk 
+      generic, public :: replace => replace_k0, replace_sk
       
       procedure :: notall => b_notall
-      procedure :: notrange => b_notrange
-      generic, public :: not => notall, notrange
+      procedure :: notrange_k0 => b_notrange
+      procedure :: notrange_sk => b_notrange_sk
+      generic, public :: not => notall, notrange_k0, notrange_sk
+   end type
+   
+   type kwe
    end type
 
    interface assignment(=)
@@ -203,26 +236,39 @@ contains
 
 
 
-
-   _PURE_ subroutine b_allocate_sk(this,n,lb,ub,mold,source,capacity)
+   _PURE_ subroutine b_allocate2_sk(this,lb,ub,capacity)
       class(bitfield_t), intent(inout) :: this
-      integer(sk), intent(in) :: n, lb, ub, capacity
+      integer(sk), intent(in) :: lb, ub, capacity
+      optional :: capacity
+                  
+      if (allocated(this%a)) error stop "b_allocate: bitfield is already allocated"
+      
+      call allocate_core( this, lb, ub )
+      if (present(capacity)) call b_recap1_sk( this, capacity, .false. )      
+   end subroutine 
+
+   _PURE_ subroutine b_allocate2(this,lb,ub,capacity)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: lb, ub, capacity
+      optional :: capacity
+                  
+      integer(sk), allocatable :: capacity___
+      
+      if (present(capacity)) capacity___ = capacity
+      call b_allocate2_sk( this, int(lb,kind=sk), int(ub,kind=sk), capacity___ )
+   end subroutine 
+
+   _PURE_ subroutine b_allocate3(this,mold,source,capacity)
+      class(bitfield_t), intent(inout) :: this
+      integer(sk), intent(in) :: capacity
       type(bitfield_t), intent(in) :: mold, source
-      optional :: n, lb, ub, mold, source, capacity
+      optional :: mold, source, capacity
       
       integer(sk) :: lb___, ub___
             
       if (allocated(this%a)) error stop "b_allocate: bitfield is already allocated"
       
-      if (present(n).or.present(ub)) then
-         if (present(n)) then
-            lb___ = 1
-            ub___ = n
-         else
-            lb___ = lb
-            ub___ = ub
-         end if
-      else if (present(mold)) then
+      if (present(mold)) then
          lb___ = mold%lb
          ub___ = mold%ub
       else if (present(source)) then
@@ -230,25 +276,9 @@ contains
          ub___ = source%ub
       end if
       call allocate_core( this, lb___, ub___ )
-      if (present(capacity)) call b_recap_sk( this, capacity )
+      if (present(capacity)) call b_recap1_sk( this, capacity, .false. )
       if (present(source)) this%a(0:source%jmax) = source%a(0:source%jmax)
       
-   end subroutine 
-
-   _PURE_ subroutine b_allocate(this,n,lb,ub,mold,source,capacity)
-      class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: n, lb, ub, capacity
-      type(bitfield_t), intent(in) :: mold, source
-      optional :: n, lb, ub, mold, source, capacity
-      
-      integer(sk), allocatable :: n___, lb___, ub___, capacity___
-      
-      if (present(n)) n___ = n
-      if (present(lb)) lb___ = lb
-      if (present(ub)) ub___ = ub
-      if (present(capacity)) capacity___ = capacity
-         
-      call b_allocate_sk( this, n___, lb___, ub___, mold, source, capacity___ )
    end subroutine 
 
    _PURE_ subroutine allocate_core(this,lb,ub)
@@ -312,13 +342,13 @@ contains
          do while (n > newcap)
             newcap = 2*newcap
          end do
-         call b_recap_sk( this, newcap, keep )
+         call b_recap1_sk( this, newcap, keep )
       else if (3*n <= size(this%a,kind=sk) * l .and. this%strat == BITFIELD_GROWSHRINK) then
          newcap = size(this%a,kind=sk) * l / 2
          do while (3*n <= newcap)
             newcap = newcap / 2
          end do
-         call b_recap_sk( this, newcap, keep )
+         call b_recap1_sk( this, newcap, keep )
       end if
       this%n = n
       this%lb = lb
@@ -335,11 +365,37 @@ contains
       call b_resize_sk( this, int(lb,kind=sk), int(ub,kind=sk), keep )  
    end subroutine
 
-   _PURE_ subroutine b_recap_sk(this,capacity,keep)
+   _PURE_ subroutine b_recap0(this,keep)
+      class(bitfield_t), intent(inout) :: this
+      logical, intent(in) :: keep
+      optional :: keep
+      
+      call b_recap_core( this, 0_sk, keep )
+   end subroutine
+   
+  _PURE_ subroutine b_recap1_sk(this,capacity,keep)
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: capacity
       logical, intent(in) :: keep
-      optional :: capacity, keep
+      optional :: keep
+      
+      call b_recap_core( this, capacity, keep )
+   end subroutine
+   
+   _PURE_ subroutine b_recap1(this,capacity,keep)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: capacity
+      logical, intent(in) :: keep
+      optional :: keep
+      
+      call b_recap_core( this, int(capacity,kind=sk), keep )
+   end subroutine
+  
+   _PURE_ subroutine b_recap_core(this,capacity,keep)
+      class(bitfield_t), intent(inout) :: this
+      integer(sk), intent(in) :: capacity
+      logical, intent(in) :: keep
+      optional :: keep
       
       integer(sk) :: newcap
       logical :: keep___
@@ -349,8 +405,7 @@ contains
 
       keep___ = .true. ; if (present(keep)) keep___ = keep
 
-      newcap = this%n
-      if (present(capacity)) newcap = max( capacity, newcap )
+      newcap = max( capacity, this%n )
       newcap = ((newcap-1)/l+1) * l
       if (newcap /= size(this%a,kind=sk)*l) then
          allocate( atmp(0:(newcap-1)/l) )
@@ -358,18 +413,6 @@ contains
          call move_alloc( atmp, this%a )
       end if
    end subroutine
-   
-   _PURE_ subroutine b_recap(this,capacity,keep)
-      class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: capacity
-      logical, intent(in) :: keep
-      optional :: capacity, keep
-      
-      integer(sk), allocatable :: capacity___
-      
-      call b_recap_sk( this, capacity___, keep )
-   end subroutine
-  
          
             
    _PURE_ subroutine b_append_b(this,that)
@@ -411,31 +454,33 @@ contains
       call b_setrange1_sk( this, ub+1, this%n, 1_sk, v )
    end subroutine
 
-   _PURE_ subroutine b_drop_sk(this,k)
+    _PURE_ subroutine b_drop0(this)
       class(bitfield_t), intent(inout) :: this
-      integer(sk), intent(in) :: k
-      optional :: k
       
 #ifdef DEBUG   
       if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
 #endif
-      if (present(k)) then
-         call b_resize_sk( this, this%lb, max(this%ub-k,0), .true. )
-      else
-         call b_resize_sk( this, this%lb, max(this%ub-1,0), .true. )
-      end if
-                  
+      call b_resize_sk( this, this%lb, max(this%ub-1,0), .true. )                  
+   end subroutine
+
+  _PURE_ subroutine b_drop_sk(this,k)
+      class(bitfield_t), intent(inout) :: this
+      integer(sk), intent(in) :: k
+      
+#ifdef DEBUG   
+      if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
+#endif
+      call b_resize_sk( this, this%lb, max(this%ub-k,0), .true. )
    end subroutine
       
    _PURE_ subroutine b_drop(this,k)
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: k
-      optional :: k
       
-      integer(sk), allocatable :: k___
-      
-      if (present(k)) k___ = k
-      call b_drop_sk( this, k___ )
+#ifdef DEBUG   
+      if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
+#endif
+      call b_resize_sk( this, this%lb, max(this%ub-k,0), .true. )
                   
    end subroutine
  
