@@ -26,7 +26,7 @@ implicit none
 
    integer, parameter :: k0 = kind(0)
    integer, parameter :: ik = selected_int_kind(r=18)
-   integer, parameter :: sk = c_size_t, bitfield_size
+   integer, parameter :: sk = c_size_t, bitfield_size = sk
    integer, parameter :: l = bit_size(0_ik)
    integer, parameter :: l2l = nint(log(real(l))/log(2.0))
    integer, parameter :: ll = 64*l
