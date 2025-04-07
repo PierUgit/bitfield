@@ -166,8 +166,9 @@ implicit none
 
 contains
 
+   !********************************************************************************************
    logical function bitfield_check() result(stat)
-   
+   !********************************************************************************************
       integer :: ii
       
       stat = all( btest( ones, [(ii,ii=0,l-1)] ) )
@@ -176,31 +177,41 @@ contains
    
 
 
+   !********************************************************************************************
    integer(sk) _PURE_ function b_getsize(this)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       
       b_getsize = this%n
    end function 
    
+   !********************************************************************************************
    integer(sk) _PURE_ function b_getcapacity(this)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       
       b_getcapacity = size( this%a, kind=sk ) * l
    end function 
    
+   !********************************************************************************************
    integer(sk) _PURE_ function b_getlb(this)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       
       b_getlb = this%lb
    end function 
 
+   !********************************************************************************************
    integer(sk) _PURE_ function b_getub(this)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       
       b_getub = this%ub
    end function 
 
+   !********************************************************************************************
    _PURE_ subroutine b_setlb_sk(this,lb)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: lb
       
@@ -210,14 +221,18 @@ contains
       end if
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_setlb(this,lb)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: lb
       
       call b_setlb_sk( this, int(lb,kind=sk) )
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_setub_sk(this,ub)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: ub
       
@@ -227,7 +242,9 @@ contains
       end if
    end subroutine 
    
+   !********************************************************************************************
    _PURE_ subroutine b_setub(this,ub)
+   !**************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: ub
       
@@ -236,7 +253,9 @@ contains
 
 
 
+   !**************************************************************************************
    _PURE_ subroutine b_allocate2_sk(this,lb,ub,capacity)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: lb, ub, capacity
       optional :: capacity
@@ -247,7 +266,9 @@ contains
       if (present(capacity)) call b_recap1_sk( this, capacity, .false. )      
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_allocate2(this,lb,ub,capacity)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: lb, ub, capacity
       optional :: capacity
@@ -258,7 +279,9 @@ contains
       call b_allocate2_sk( this, int(lb,kind=sk), int(ub,kind=sk), capacity___ )
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_allocate3(this,mold,source,capacity)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: capacity
       type(bitfield_t), intent(in) :: mold, source
@@ -281,7 +304,9 @@ contains
       
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine allocate_core(this,lb,ub)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: lb, ub
             
@@ -298,7 +323,9 @@ contains
       
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_deallocate(this)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
             
       call check_alloc( this, "b_deallocate" )
@@ -311,7 +338,9 @@ contains
       this%strat = BITFIELD_GROWONLY
    end subroutine 
    
+   !********************************************************************************************
    _PURE_ logical function b_allocated(this)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
             
       b_allocated = allocated( this%a )
@@ -319,14 +348,18 @@ contains
    
    
    
+   !********************************************************************************************
    _PURE_ subroutine b_set_dynamic_capacity(this,strat)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: strat
       
       this%strat = strat
    end subroutine
    
+   !********************************************************************************************
    _PURE_ subroutine b_resize_sk(this,lb,ub,keep)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: lb, ub
       logical, intent(in) :: keep
@@ -356,7 +389,9 @@ contains
       this%jmax = (this%n-1) / l   
    end subroutine
    
+   !********************************************************************************************
    _PURE_ subroutine b_resize(this,lb,ub,keep)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: lb, ub
       logical, intent(in) :: keep
@@ -365,7 +400,9 @@ contains
       call b_resize_sk( this, int(lb,kind=sk), int(ub,kind=sk), keep )  
    end subroutine
 
+   !********************************************************************************************
    _PURE_ subroutine b_recap0(this,keep)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: keep
       optional :: keep
@@ -373,7 +410,9 @@ contains
       call b_recap_core( this, 0_sk, keep )
    end subroutine
    
-  _PURE_ subroutine b_recap1_sk(this,capacity,keep)
+   !********************************************************************************************
+   _PURE_ subroutine b_recap1_sk(this,capacity,keep)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: capacity
       logical, intent(in) :: keep
@@ -382,7 +421,9 @@ contains
       call b_recap_core( this, capacity, keep )
    end subroutine
    
+   !********************************************************************************************
    _PURE_ subroutine b_recap1(this,capacity,keep)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: capacity
       logical, intent(in) :: keep
@@ -391,7 +432,9 @@ contains
       call b_recap_core( this, int(capacity,kind=sk), keep )
    end subroutine
   
+   !********************************************************************************************
    _PURE_ subroutine b_recap_core(this,capacity,keep)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: capacity
       logical, intent(in) :: keep
@@ -415,7 +458,10 @@ contains
    end subroutine
          
             
+
+   !********************************************************************************************
    _PURE_ subroutine b_append_b(this,that)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       type(bitfield_t), intent(in) :: that
       
@@ -441,7 +487,9 @@ contains
       call b_set0_sk( this, this%n, v )
    end subroutine
    
+   !********************************************************************************************
    _PURE_ subroutine b_append_l1(this,v)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v(:)
                   
@@ -455,7 +503,9 @@ contains
       call b_setrange1_sk( this, ub+1, this%n, 1_sk, v )
    end subroutine
 
+   !********************************************************************************************
     _PURE_ subroutine b_drop0(this)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       
 #ifdef DEBUG   
@@ -464,7 +514,9 @@ contains
       call b_resize_sk( this, this%lb, max(this%ub-1,0), .true. )                  
    end subroutine
 
+   !********************************************************************************************
   _PURE_ subroutine b_drop_sk(this,k)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: k
       
@@ -474,7 +526,9 @@ contains
       call b_resize_sk( this, this%lb, max(this%ub-k,0), .true. )
    end subroutine
       
+   !********************************************************************************************
    _PURE_ subroutine b_drop(this,k)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: k
       
@@ -487,7 +541,9 @@ contains
  
 
    
+   !********************************************************************************************
    _PURE_ subroutine assign_b2b(this,that)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       type(bitfield_t), intent(inout) :: that
       
@@ -498,14 +554,18 @@ contains
       this%a(:) = that%a(0:that%jmax)
    end subroutine 
    
+   !********************************************************************************************
    _PURE_ subroutine assign_l2b_0(this,v)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v
       
       call b_setall0(this,v)
    end subroutine 
    
+   !********************************************************************************************
    _PURE_ subroutine assign_l2b_1(this,v)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       logical, allocatable, intent(in) :: v(:)
       
@@ -516,7 +576,9 @@ contains
       call b_setall1(this,v)
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine assign_b2l(v,this)
+   !********************************************************************************************
       logical, allocatable, intent(out) :: v(:)
       type(bitfield_t), intent(in) :: this
       
@@ -527,7 +589,9 @@ contains
 
    
 
+   !********************************************************************************************
    _PURE_ subroutine b_set0_sk(this,i,v)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: i
       logical, intent(in) :: v
@@ -547,7 +611,9 @@ contains
       end if
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_set0(this,i,v)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: i
       logical, intent(in) :: v
@@ -555,7 +621,9 @@ contains
       call b_set0_sk( this, int(i,kind=sk), v )
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_setall0(this,v)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v
       
@@ -565,7 +633,9 @@ contains
       this%a(:) = merge(ones,zeros,v)
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ recursive subroutine b_setrange0_sk(this,istart,istop,inc,v)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, intent(in) :: v
@@ -620,7 +690,9 @@ contains
       end if
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_setrange0(this,istart,istop,inc,v)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
       logical, intent(in) :: v
@@ -629,7 +701,9 @@ contains
                          , int(inc,kind=sk),v)
    end subroutine 
    
+   !********************************************************************************************
    _PURE_ subroutine b_setall1(this,v)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v(:)
       
@@ -662,7 +736,9 @@ contains
       end do
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_setrange1(this,istart,istop,inc,v)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
       logical, intent(in) :: v(:)
@@ -673,7 +749,9 @@ contains
 
    
 
+   !********************************************************************************************
    _PURE_ subroutine b_get0_sk(this,i,v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: i
       logical, intent(out) :: v
@@ -689,7 +767,9 @@ contains
       v = btest(this%a(j),ii)
    end subroutine 
    
+   !********************************************************************************************
    _PURE_ subroutine b_get0(this,i,v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: i
       logical, intent(out) :: v
@@ -697,14 +777,18 @@ contains
       call b_get0_sk( this, int(i,kind=sk), v )
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_getall(this,v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       logical, intent(out) :: v(:)
       
       call b_getrange_sk( this, this%lb, this%ub, 1_sk, v )
    end subroutine 
    
+   !********************************************************************************************
    _PURE_ subroutine b_getrange_sk(this,istart,istop,inc,v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, intent(out) :: v(:)
@@ -757,7 +841,9 @@ contains
       end if
    end subroutine 
          
+   !********************************************************************************************
    _PURE_ subroutine b_getrange(this,istart,istop,inc,v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       logical, intent(out) :: v(:)
@@ -766,7 +852,9 @@ contains
                         , int(inc,kind=sk), v )
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ function b_fget0_sk(this,i) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: i
       logical :: v
@@ -774,7 +862,9 @@ contains
       call b_get0_sk(this,i,v)
    end function 
 
+   !********************************************************************************************
    _PURE_ function b_fget0(this,i) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: i
       logical :: v
@@ -782,7 +872,9 @@ contains
       call b_get0(this,i,v)
    end function 
 
+   !********************************************************************************************
    _PURE_ function b_fgetall(this) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       logical, allocatable:: v(:)
       
@@ -790,7 +882,9 @@ contains
       call b_getall(this,v)
    end function 
 
+   !********************************************************************************************
    _PURE_ function b_fgetrange_sk(this,istart,istop,inc) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, allocatable :: v(:)
@@ -802,7 +896,9 @@ contains
       call b_getrange_sk( this, istart, istop, inc, v )   
    end function
 
+   !********************************************************************************************
    _PURE_ function b_fgetrange(this,istart,istop,inc) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       logical, allocatable :: v(:)
@@ -816,7 +912,9 @@ contains
 
 
    
+   !********************************************************************************************
    _PURE_ subroutine b_replace_sk(this,istart,istop,inc,that)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: istart, istop, inc
       type(bitfield_t), intent(in) :: that
@@ -858,7 +956,9 @@ contains
       end if
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_replace(this,istart,istop,inc,that)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
       type(bitfield_t), intent(in) :: that
@@ -869,7 +969,9 @@ contains
 
 
 
+   !********************************************************************************************
    _PURE_ subroutine b_extract_sk(this,istart,istop,inc,that)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       type(bitfield_t), intent(inout) :: that
@@ -920,7 +1022,9 @@ contains
       end if
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ subroutine b_extract(this,istart,istop,inc,that)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       type(bitfield_t), intent(inout) :: that
@@ -937,7 +1041,9 @@ contains
       call b_extract_sk(this,istart,istop,inc,that)
    end function
       
+   !********************************************************************************************
    _PURE_ function b_fextract(this,istart,istop,inc) result(that)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       type(bitfield_t) :: that
@@ -946,13 +1052,17 @@ contains
    end function
    
 
+   !********************************************************************************************
    _PURE_ logical function b_allall(this)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       
       b_allall = b_allrange_sk( this, this%lb, this%ub, 1_sk )
    end function 
 
+   !********************************************************************************************
    _PURE_ recursive logical function b_allrange_sk(this,istart,istop,inc) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       
@@ -984,7 +1094,9 @@ contains
 
    end function 
 
+   !********************************************************************************************
    _PURE_ recursive logical function b_allrange(this,istart,istop,inc) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
@@ -992,13 +1104,17 @@ contains
    end function 
 
 
+   !********************************************************************************************
    _PURE_ logical function b_anyall(this)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       
       b_anyall = b_anyrange_sk( this, this%lb, this%ub, 1_sk )
    end function 
 
+   !********************************************************************************************
    _PURE_ recursive logical function b_anyrange_sk(this,istart,istop,inc) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       
@@ -1030,7 +1146,9 @@ contains
 
    end function 
 
+   !********************************************************************************************
    _PURE_ recursive logical function b_anyrange(this,istart,istop,inc) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
@@ -1039,13 +1157,17 @@ contains
 
 
 
+   !********************************************************************************************
    _PURE_ integer function b_countall(this) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       
       v = b_countrange_sk( this, this%lb, this%ub, 1_sk )  
    end function 
 
+   !********************************************************************************************
    _PURE_ recursive integer function b_countrange_sk(this,istart,istop,inc) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       
@@ -1076,7 +1198,9 @@ contains
 
    end function 
    
+   !********************************************************************************************
    _PURE_ recursive integer function b_countrange(this,istart,istop,inc) result(v)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
@@ -1085,13 +1209,17 @@ contains
 
 
    
+   !********************************************************************************************
    _PURE_ subroutine b_notall(this)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
             
       this%a(:) = not( this%a )
    end subroutine
    
+   !********************************************************************************************
    _PURE_ recursive subroutine b_notrange_sk(this,istart,istop,inc)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: istart, istop, inc
       
@@ -1121,14 +1249,18 @@ contains
 
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ recursive subroutine b_notrange(this,istart,istop,inc)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
       
       call b_notrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) )  
    end subroutine 
 
+   !********************************************************************************************
    _PURE_ function b_fnotall(this) result(b)
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this
       type(bitfield_t) :: b
             
@@ -1136,7 +1268,9 @@ contains
       b%a(:) = not( this%a )
    end function
    
+   !********************************************************************************************
    _PURE_ function b_and(this,that) result(b)
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
@@ -1144,7 +1278,9 @@ contains
       b%a(:) = iand( this%a, that%a )
    end function
    
+   !********************************************************************************************
    _PURE_ function b_or(this,that) result(b)
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
@@ -1152,7 +1288,9 @@ contains
       b%a(:) = ior( this%a, that%a )
    end function
    
+   !********************************************************************************************
    _PURE_ function b_eqv(this,that) result(b)
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
@@ -1161,7 +1299,9 @@ contains
       b%a(:) = not(b%a)
    end function
 
+   !********************************************************************************************
    _PURE_ function b_neqv(this,that) result(b)
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
@@ -1169,7 +1309,9 @@ contains
       b%a(:) = ieor( this%a, that%a )
    end function
    
+   !********************************************************************************************
    _PURE_ logicalfunction b_equal(this,that) result(v)
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this, that
             
       integer :: ii1, ii2
@@ -1189,7 +1331,9 @@ contains
       end do
    end function
 
+   !********************************************************************************************
    _PURE_ logicalfunction b_notequal(this,that) result(v)
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this, that
             
       integer :: ii1, ii2
@@ -1211,7 +1355,9 @@ contains
    
    
    
+   !********************************************************************************************
    _PURE_ subroutine indeces(this,i,j,ii)
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: i
       integer(sk), intent(out) :: j
@@ -1224,7 +1370,9 @@ contains
       j = shiftr(ii___,l2l); ii = ii___ - shiftl(j,l2l)
    end subroutine
    
+   !********************************************************************************************
    _PURE_ subroutine clear_end(this)
+   !********************************************************************************************
       type(bitfield_t), intent(inout) :: this
       
       integer :: ii, iii
@@ -1236,7 +1384,9 @@ contains
       end do
    end subroutine   
    
+   !********************************************************************************************
    _PURE_ subroutine set_end(this)
+   !********************************************************************************************
       type(bitfield_t), intent(inout) :: this
       
       integer :: ii, iii
@@ -1248,7 +1398,9 @@ contains
       end do
    end subroutine   
    
+   !********************************************************************************************
    _PURE_ subroutine getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
+   !********************************************************************************************
       integer(sk), intent(in) :: jstart, jstop, inc
       integer, intent(in) :: iistart, iistop
       integer(sk), intent(inout) :: j
@@ -1311,7 +1463,9 @@ contains
       end if
    end subroutine
    
+   !********************************************************************************************
    _PURE_ subroutine check_alloc( this, name )
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this
       character(*), intent(in) :: name
       
@@ -1321,7 +1475,9 @@ contains
       end if
    end subroutine
 
+   !********************************************************************************************
    _PURE_ subroutine check_1index( this, i, name )
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: i
       character(*), intent(in) :: name
@@ -1332,7 +1488,9 @@ contains
       end if
    end subroutine
 
+   !********************************************************************************************
    _PURE_ subroutine check_3index(this,istart,istop,inc,name)
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       character(*), intent(in) :: name
@@ -1345,7 +1503,9 @@ contains
       end if
    end subroutine
 
+   !********************************************************************************************
    _PURE_ subroutine check_4index(this,istart,istop,inc,s,name)
+   !********************************************************************************************
       type(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc, s
       character(*), intent(in) :: name
