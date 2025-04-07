@@ -301,7 +301,7 @@ contains
    _PURE_ subroutine b_deallocate(this)
       class(bitfield_t), intent(inout) :: this
             
-      if (.not.b_allocated(this)) error stop "b_deallocate: bitfield is not allocated"
+      call check_alloc( this, "b_deallocate" )
       
       deallocate( this%a )
       this%n = -1
@@ -334,7 +334,7 @@ contains
       
       integer(sk) :: n, newcap
 
-      if (.not.b_allocated(this)) error stop "b_resize: bitfield is not allocated"
+      call check_alloc( this, "b_resize_sk" )
 
       n = ub - lb + 1
       if (n > size(this%a,kind=sk) * l) then
@@ -401,7 +401,7 @@ contains
       logical :: keep___
       integer(ik), allocatable :: atmp(:)
       
-      if (.not.b_allocated(this)) error stop "b_resize: bitfield is not allocated"
+      call check_alloc( this, "b_recap_core" )
 
       keep___ = .true. ; if (present(keep)) keep___ = keep
 
@@ -422,7 +422,8 @@ contains
       integer(sk) :: ub
 
 #ifdef DEBUG   
-      if (.not.b_allocated(this)) error stop "b_append_b: bitfield is not allocated"
+      call check_alloc( this, "b_append_b" )
+      call check_alloc( that, "b_append_b" )
 #endif
       ub = this%ub
       call b_resize_sk( this, this%lb, this%ub+that%n, .true. )
@@ -434,7 +435,7 @@ contains
       logical, intent(in) :: v
             
 #ifdef DEBUG   
-      if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
+      call check_alloc( this, "b_append_l0" )
 #endif
       call b_resize_sk( this, this%lb, this%ub+1, .true. )
       call b_set0_sk( this, this%n, v )
@@ -447,7 +448,7 @@ contains
       integer(sk) :: ub
 
 #ifdef DEBUG   
-      if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
+      call check_alloc( this, "b_append_l1" )
 #endif
       ub = this%ub
       call b_resize_sk( this, this%lb, this%ub+size(v,kind=sk), .true. )
@@ -458,7 +459,7 @@ contains
       class(bitfield_t), intent(inout) :: this
       
 #ifdef DEBUG   
-      if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
+      call check_alloc( this, "b_drop0" )
 #endif
       call b_resize_sk( this, this%lb, max(this%ub-1,0), .true. )                  
    end subroutine
@@ -468,7 +469,7 @@ contains
       integer(sk), intent(in) :: k
       
 #ifdef DEBUG   
-      if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
+      call check_alloc( this, "b_drop_sk" )
 #endif
       call b_resize_sk( this, this%lb, max(this%ub-k,0), .true. )
    end subroutine
@@ -478,7 +479,7 @@ contains
       integer, intent(in) :: k
       
 #ifdef DEBUG   
-      if (.not.b_allocated(this)) error stop "b_append_l0: bitfield is not allocated"
+      call check_alloc( this, "b_drop" )
 #endif
       call b_resize_sk( this, this%lb, max(this%ub-k,0), .true. )
                   
@@ -490,7 +491,7 @@ contains
       class(bitfield_t), intent(inout) :: this
       type(bitfield_t), intent(inout) :: that
       
-      if (b_allocated(this) .and. this%getsize() /= that%getsize()) &
+      if (b_allocated(this) .and. this%n /= that%n) &
          call b_deallocate(this)
       if (.not.b_allocated(this)) &
          call allocate_core( this, that%lb, that%ub )
@@ -534,7 +535,10 @@ contains
       integer :: ii
       integer(sk) :: j
       
-      ! no runtime check, as it would hurt the performances for a single bit set
+#ifdef DEBUG   
+      call check_alloc( this, "b_set0_sk" )
+      call check_1index( this, i, "b_set0_sk" )
+#endif
       call indeces(this,i,j,ii)
       if (v) then
          this%a(j) = ibset(this%a(j),ii)
@@ -555,7 +559,9 @@ contains
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v
       
-      if (.not.b_allocated(this)) error stop "b_setall0: bitfield is not allocated"
+#ifdef DEBUG   
+      call check_alloc( this, "b_setall0" )
+#endif
       this%a(:) = merge(ones,zeros,v)
    end subroutine 
 
@@ -574,10 +580,13 @@ contains
          return
       end if
       
-      if (.not.b_allocated(this)) error stop "b_setrange0: bitfield is not allocated"
-      if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
-         error stop "b_setrange0(): out of bound indeces" 
-      if (istop < istart) return
+#ifdef DEBUG   
+      call check_alloc( this, "b_setrange0_sk" )
+#endif
+      if (this%n == 0 .or. istop < istart) return
+#ifdef DEBUG   
+      call check_3index( this, istart, istop, inc, "b_setrange0_sk" )
+#endif
       
       if (inc == 1) then
          a = merge(ones,zeros,v)
@@ -637,15 +646,14 @@ contains
       integer :: iir(l), iirs
       integer(ik) :: a
       
-      if (.not.b_allocated(this)) error stop "b_setrange1: bitfield is not allocated"
-      if (this%n == 0 ) then
-         if ((istop-istart)*inc >= 0) error stop "b_setrange1(): out of bound indeces" 
-         return
-      else
-         if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
-            error stop "b_setrange1(): out of bound indeces" 
-      end if
-      if ( (istop-istart)/inc+1 /= size(v) ) error stop "b_setrange1(): the shapes differ" 
+#ifdef DEBUG   
+      call check_alloc( this, "b_setrange1_sk" )
+#endif
+      if (this%n == 0) return
+      if (sign(1_sk,istop-istart)*sign(1_sk,inc) < 0) return
+#ifdef DEBUG   
+      call check_4index( this, istart, istop, inc, size(v,kind=sk), "b_setrange1_sk" )
+#endif
       
       iv = 0
       do i = istart, istop, inc
@@ -673,6 +681,10 @@ contains
       integer :: ii
       integer(sk) :: j
       
+#ifdef DEBUG   
+      call check_alloc( this, "b_get0_sk" )
+      call check_1index( this, i, "b_get0_sk" )
+#endif
       call indeces(this,i,j,ii)
       v = btest(this%a(j),ii)
    end subroutine 
@@ -689,7 +701,6 @@ contains
       class(bitfield_t), intent(in) :: this
       logical, intent(out) :: v(:)
       
-      if (this%getsize() /= size(v,kind=sk)) error stop "b_getall(): the sizes differ" 
       call b_getrange_sk( this, this%lb, this%ub, 1_sk, v )
    end subroutine 
    
@@ -702,9 +713,14 @@ contains
       integer(sk) :: i, i1, i2, iv, j, jstart, jstop
       integer :: iir(l), iirs
       
+#ifdef DEBUG
+      call check_alloc( this, "b_getrange_sk" )
+#endif
+      if (this%n == 0) return
       if (sign(1_sk,istop-istart)*sign(1_sk,inc) < 0) return
-      if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
-         error stop "b_getrange1(): out of bound indeces" 
+#ifdef DEBUG   
+      call check_4index( this, istart, istop, inc, size(v,kind=sk), "b_getrange_sk" ) 
+#endif
 
       if (0 < inc .and. inc <= l/minbatch) then
          call indeces( this, istart, jstart, iistart)
@@ -809,9 +825,14 @@ contains
       integer(sk) :: i, j, jstart, jstop, jsource, isource
       integer :: iir(l), iirs
       
-      if (that%n <= 0) return
-      if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
-         error stop "b_replace(): out of bound bounds" 
+#ifdef DEBUG
+      call check_alloc( this, "b_replace_sk" )
+#endif
+      if (this%n <= 0) return
+      if (sign(1_sk,istop-istart)*sign(1_sk,inc) < 0) return
+#ifdef DEBUG
+      call check_4index( this, istart, istop, inc, that%n, "b_replace_sk" )
+#endif
       
       call indeces(this,istart,jstart,iistart)
       call indeces(this,istop ,jstop ,iistop)
@@ -858,9 +879,14 @@ contains
       integer :: iir(l), iirs
       logical :: v(l)
       
-      if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
-         error stop "b_extract(): out of bound indeces" 
-      
+#ifdef DEBUG
+      call check_alloc( this, "b_extract_sk" )
+#endif
+      if (this%n <= 0) return
+      if (sign(1_sk,istop-istart)*sign(1_sk,inc) < 0) return
+#ifdef DEBUG
+      call check_3index( this, istart, istop, inc, "b_extract_sk" )
+#endif
       if (b_allocated(that)) call b_deallocate( that )
          
       n = (istop-istart)/inc + 1
@@ -937,6 +963,14 @@ contains
          v = b_allrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
          v = .true.
+#ifdef DEBUG   
+         call check_alloc( this, "b_allrange_sk" )
+#endif
+         if (this%n == 0 ) return
+         if ((istop-istart)*inc < 0) return
+#ifdef DEBUG   
+         call check_3index( this, istart, istop, inc, "b_allrange_sk" )
+#endif
          kstart = istart
          do while (kstart <= istop)
             kstop = min( kstart + (ll-1)*inc, istop )
@@ -975,6 +1009,14 @@ contains
          v = b_anyrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
          v = .false.
+#ifdef DEBUG   
+         call check_alloc( this, "b_anyrange_sk" )
+#endif
+         if (this%n == 0 ) return
+         if ((istop-istart)*inc < 0) return
+#ifdef DEBUG   
+         call check_3index( this, istart, istop, inc, "b_anyrange_sk" )
+#endif
          kstart = istart
          do while (kstart <= istop)
             kstop = min( kstart + (ll-1)*inc, istop )
@@ -1014,6 +1056,14 @@ contains
          v = b_countrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
          v = 0
+#ifdef DEBUG   
+         call check_alloc( this, "b_countrange_sk" )
+#endif
+         if (this%n == 0 ) return
+         if ((istop-istart)*inc < 0) return
+#ifdef DEBUG   
+         call check_3index( this, istart, istop, inc, "b_countrange_sk" )
+#endif
          kstart = istart
          do while (kstart <= istop)
             kstop = min( kstart + (ll-1)*inc, istop )
@@ -1051,6 +1101,14 @@ contains
       if (inc < 0) then
          call b_notrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
+#ifdef DEBUG   
+         call check_alloc( this, "b_notrange_sk" )
+#endif
+         if (this%n == 0 ) return
+         if ((istop-istart)*inc < 0) return
+#ifdef DEBUG   
+         call check_3index( this, istart, istop, inc, "b_notrange_sk" )
+#endif
          kstart = istart
          do while (kstart <= istop)
             kstop = min( kstart + (ll-1)*inc, istop )
@@ -1252,5 +1310,51 @@ contains
          end do
       end if
    end subroutine
+   
+   _PURE_ subroutine check_alloc( this, name )
+      type(bitfield_t), intent(in) :: this
+      character(*), intent(in) :: name
+      
+      if (.not.b_allocated( this )) then
+         print*, "*** In " // name // "():"
+         error stop "bitfield not allocated"
+      end if
+   end subroutine
 
+   _PURE_ subroutine check_1index( this, i, name )
+      type(bitfield_t), intent(in) :: this
+      integer(sk), intent(in) :: i
+      character(*), intent(in) :: name
+      
+      if (i < this%lb .or. i > this%ub) then
+         print*, "*** In " // name // "(): "
+         error stop "out of bound index"
+      end if
+   end subroutine
+
+   _PURE_ subroutine check_3index(this,istart,istop,inc,name)
+      type(bitfield_t), intent(in) :: this
+      integer(sk), intent(in) :: istart, istop, inc
+      character(*), intent(in) :: name
+         
+      call check_1index( this, istart, name )
+      call check_1index( this, istop,  name )
+      if (inc == 0) then
+         print*, "*** In " // name // "(): "
+         error stop "inc is equal to 0"
+      end if
+   end subroutine
+
+   _PURE_ subroutine check_4index(this,istart,istop,inc,s,name)
+      type(bitfield_t), intent(in) :: this
+      integer(sk), intent(in) :: istart, istop, inc, s
+      character(*), intent(in) :: name
+         
+      call check_3index( this, istart, istop, inc, name )
+      if ( (istop-istart)/inc+1 /= s ) then
+         print*, "*** In " // name // "(): "
+         error stop "the sizes differ" 
+      end if
+   end subroutine
+         
 end module
