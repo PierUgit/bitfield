@@ -46,10 +46,13 @@ implicit none
       integer :: strat = BITFIELD_GROWONLY
    contains
       private
+      procedure :: allocate1_k0 => b_allocate1
+      procedure :: allocate1_sk => b_allocate1_sk
       procedure :: allocate2_k0 => b_allocate2
       procedure :: allocate2_sk => b_allocate2_sk
       procedure :: allocate3    => b_allocate3
-      generic, public :: allocate => allocate2_k0, allocate2_sk, &
+      generic, public :: allocate => allocate1_k0, allocate1_sk, &
+                                     allocate2_k0, allocate2_sk, &
                                      allocate3
       procedure, public :: deallocate => b_deallocate
       procedure, public :: allocated => b_allocated
@@ -57,10 +60,9 @@ implicit none
       procedure :: resize_k0 => b_resize
       procedure :: resize_sk => b_resize_sk
       generic, public :: resize => resize_k0, resize_sk
-      procedure :: recap0    => b_recap0
       procedure :: recap1_k0 => b_recap1
       procedure :: recap1_sk => b_recap1_sk
-      generic, public :: recap => recap0,recap1_k0, recap1_sk
+      generic, public :: recap => recap1_k0, recap1_sk
       procedure, public :: set_dynamic_capacity => b_set_dynamic_capacity
       
       procedure :: append_b => b_append_b
@@ -135,7 +137,7 @@ implicit none
       generic, public :: not => notall, notrange_k0, notrange_sk
    end type
    
-   type kwe
+   type kwe_t
    end type
 
    interface assignment(=)
@@ -254,38 +256,69 @@ contains
 
 
    !**************************************************************************************
-   _PURE_ subroutine b_allocate2_sk(this,lb,ub,capacity)
+   _PURE_ subroutine b_allocate1_sk(this,n,kwe,capacity)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
-      integer(sk), intent(in) :: lb, ub, capacity
-      optional :: capacity
+      integer(sk), intent(in) :: n, capacity
+      type(kwe_t) :: kwe
+      optional :: kwe, capacity
                   
       if (allocated(this%a)) error stop "b_allocate: bitfield is already allocated"
       
-      call allocate_core( this, lb, ub )
-      if (present(capacity)) call b_recap1_sk( this, capacity, .false. )      
+      call allocate_core( this, 1_sk, n )
+      if (present(capacity)) call b_recap1_sk( this, kwe, capacity, .false. )      
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_allocate2(this,lb,ub,capacity)
+   _PURE_ subroutine b_allocate1(this,n,kwe,capacity)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: lb, ub, capacity
-      optional :: capacity
+      integer, intent(in) :: n, capacity
+      type(kwe_t) :: kwe
+      optional :: kwe, capacity
                   
       integer(sk), allocatable :: capacity___
       
       if (present(capacity)) capacity___ = capacity
-      call b_allocate2_sk( this, int(lb,kind=sk), int(ub,kind=sk), capacity___ )
+      call b_allocate1_sk( this, int(n,kind=sk), kwe, capacity___ )
+   end subroutine 
+
+   !**************************************************************************************
+   _PURE_ subroutine b_allocate2_sk(this,lb,ub,kwe,capacity)
+   !********************************************************************************************
+      class(bitfield_t), intent(inout) :: this
+      integer(sk), intent(in) :: lb, ub, capacity
+      type(kwe_t) :: kwe
+      optional :: kwe, capacity
+                  
+      if (allocated(this%a)) error stop "b_allocate: bitfield is already allocated"
+      
+      call allocate_core( this, lb, ub )
+      if (present(capacity)) call b_recap1_sk( this, kwe, capacity, .false. )      
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_allocate3(this,mold,source,capacity)
+   _PURE_ subroutine b_allocate2(this,lb,ub,kwe,capacity)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: lb, ub, capacity
+      type(kwe_t) :: kwe
+      optional :: kwe, capacity
+                  
+      integer(sk), allocatable :: capacity___
+      
+      if (present(capacity)) capacity___ = capacity
+      call b_allocate2_sk( this, int(lb,kind=sk), int(ub,kind=sk), kwe, capacity___ )
+   end subroutine 
+
+   !********************************************************************************************
+   _PURE_ subroutine b_allocate3(this,kwe,mold,source,capacity)
+   !********************************************************************************************
+      class(bitfield_t), intent(inout) :: this
+      type(kwe_t) :: kwe
       integer(sk), intent(in) :: capacity
       type(bitfield_t), intent(in) :: mold, source
-      optional :: mold, source, capacity
+      optional :: kwe, mold, source, capacity
       
       integer(sk) :: lb___, ub___
             
@@ -299,7 +332,7 @@ contains
          ub___ = source%ub
       end if
       call allocate_core( this, lb___, ub___ )
-      if (present(capacity)) call b_recap1_sk( this, capacity, .false. )
+      if (present(capacity)) call b_recap1_sk( this, kwe, capacity, .false. )
       if (present(source)) this%a(0:source%jmax) = source%a(0:source%jmax)
       
    end subroutine 
@@ -358,12 +391,13 @@ contains
    end subroutine
    
    !********************************************************************************************
-   _PURE_ subroutine b_resize_sk(this,lb,ub,keep)
+   _PURE_ subroutine b_resize_sk(this,lb,ub,kwe,keep)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: lb, ub
+      type(kwe_t) :: kwe
       logical, intent(in) :: keep
-      optional :: keep
+      optional :: kwe, keep
       
       integer(sk) :: n, newcap
 
@@ -375,13 +409,13 @@ contains
          do while (n > newcap)
             newcap = 2*newcap
          end do
-         call b_recap1_sk( this, newcap, keep )
+         call b_recap1_sk( this, kwe, newcap, keep )
       else if (3*n <= size(this%a,kind=sk) * l .and. this%strat == BITFIELD_GROWSHRINK) then
          newcap = size(this%a,kind=sk) * l / 2
          do while (3*n <= newcap)
             newcap = newcap / 2
          end do
-         call b_recap1_sk( this, newcap, keep )
+         call b_recap1_sk( this, kwe, newcap, keep )
       end if
       this%n = n
       this%lb = lb
@@ -390,46 +424,51 @@ contains
    end subroutine
    
    !********************************************************************************************
-   _PURE_ subroutine b_resize(this,lb,ub,keep)
+   _PURE_ subroutine b_resize(this,lb,ub,kwe,keep)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: lb, ub
+      type(kwe_t) :: kwe
       logical, intent(in) :: keep
-      optional :: keep
+      optional :: kwe, keep
       
-      call b_resize_sk( this, int(lb,kind=sk), int(ub,kind=sk), keep )  
+      call b_resize_sk( this, int(lb,kind=sk), int(ub,kind=sk), kwe, keep )  
    end subroutine
 
    !********************************************************************************************
-   _PURE_ subroutine b_recap0(this,keep)
+   _PURE_ subroutine b_recap1_sk(this,kwe,capacity,keep)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
-      logical, intent(in) :: keep
-      optional :: keep
-      
-      call b_recap_core( this, 0_sk, keep )
-   end subroutine
-   
-   !********************************************************************************************
-   _PURE_ subroutine b_recap1_sk(this,capacity,keep)
-   !********************************************************************************************
-      class(bitfield_t), intent(inout) :: this
+      type(kwe_t) :: kwe
       integer(sk), intent(in) :: capacity
       logical, intent(in) :: keep
-      optional :: keep
-      
-      call b_recap_core( this, capacity, keep )
+      optional :: kwe, capacity, keep
+
+      integer(sk) :: capacity___
+      logical :: keep___
+
+      capacity___ = 0; if (present(capacity)) capacity___ = capacity
+      keep = .true.; if (present(keep)) keep___ = keep
+
+      call b_recap_core( this, capacity___, keep___ )
    end subroutine
    
    !********************************************************************************************
-   _PURE_ subroutine b_recap1(this,capacity,keep)
+   _PURE_ subroutine b_recap1(this,kwe,capacity,keep)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
+      type(kwe_t) :: kwe
       integer, intent(in) :: capacity
       logical, intent(in) :: keep
-      optional :: keep
+      optional :: capacity, kwe, keep
       
-      call b_recap_core( this, int(capacity,kind=sk), keep )
+      integer(sk), allocatable :: capacity___
+      logical, allocatable :: keep___
+
+      if (present(capacity)) capacity___ = capacity
+      if (present(keep)) keep___ = keep
+
+      call b_recap1_sk( this, kwe, capacity___, keep___ )
    end subroutine
   
    !********************************************************************************************
@@ -438,17 +477,13 @@ contains
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: capacity
       logical, intent(in) :: keep
-      optional :: keep
       
       integer(sk) :: newcap
-      logical :: keep___
       integer(ik), allocatable :: atmp(:)
       
       call check_alloc( this, "b_recap_core" )
 
-      keep___ = .true. ; if (present(keep)) keep___ = keep
-
-      newcap = max( capacity, this%n )
+      newcap = max( capacity, this%n, l )
       newcap = ((newcap-1)/l+1) * l
       if (newcap /= size(this%a,kind=sk)*l) then
          allocate( atmp(0:(newcap-1)/l) )
