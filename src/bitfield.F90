@@ -257,59 +257,65 @@ contains
 
 
    !**************************************************************************************
-   _PURE_ subroutine b_allocate1_sk(this,n,kwe,capacity)
+   _PURE_ subroutine b_allocate1_sk(this,n,kwe,source,capacity)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: n, capacity
       type(kwe_t) :: kwe
-      optional :: kwe, capacity
+      logical, intent(in) :: source
+      optional :: kwe, source, capacity
                   
       if (allocated(this%a)) error stop "b_allocate: bitfield is already allocated"
       
       call allocate_core( this, 1_sk, n )
       if (present(capacity)) call b_recap1_sk( this, capacity, kwe, .false. )      
+      if (present(source)) call b_setall0(this,source)
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_allocate1(this,n,kwe,capacity)
+   _PURE_ subroutine b_allocate1(this,n,kwe,source,capacity)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: n, capacity
       type(kwe_t) :: kwe
-      optional :: kwe, capacity
+      logical, intent(in) :: source
+      optional :: kwe, source, capacity
                   
       integer(sk), allocatable :: capacity___
       
       if (present(capacity)) capacity___ = capacity
-      call b_allocate1_sk( this, int(n,kind=sk), kwe, capacity___ )
+      call b_allocate1_sk( this, int(n,kind=sk), source=source, capacity=capacity___ )
    end subroutine 
 
    !**************************************************************************************
-   _PURE_ subroutine b_allocate2_sk(this,lb,ub,kwe,capacity)
+   _PURE_ subroutine b_allocate2_sk(this,lb,ub,kwe,source,capacity)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: lb, ub, capacity
       type(kwe_t) :: kwe
-      optional :: kwe, capacity
+      logical, intent(in) :: source
+      optional :: kwe, source, capacity
                   
       if (allocated(this%a)) error stop "b_allocate: bitfield is already allocated"
       
       call allocate_core( this, lb, ub )
       if (present(capacity)) call b_recap1_sk( this, capacity, kwe, .false. )      
+      if (present(source)) call b_setall0(this,source)
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_allocate2(this,lb,ub,kwe,capacity)
+   _PURE_ subroutine b_allocate2(this,lb,ub,kwe,source,capacity)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: lb, ub, capacity
       type(kwe_t) :: kwe
-      optional :: kwe, capacity
+      logical, intent(in) :: source
+      optional :: kwe, source, capacity
                   
       integer(sk), allocatable :: capacity___
       
       if (present(capacity)) capacity___ = capacity
-      call b_allocate2_sk( this, int(lb,kind=sk), int(ub,kind=sk), kwe, capacity___ )
+      call b_allocate2_sk( this, int(lb,kind=sk), int(ub,kind=sk), kwe, source, capacity___ )
    end subroutine 
 
    !********************************************************************************************

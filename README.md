@@ -1,4 +1,4 @@
-# bitfield v0.3.1
+# bitfield v0.3.2
 
 Implementation of a resizable 1-bit logical array, stored in an integer array under 
 the hood. Not cpu-efficient at all, but memory efficient.
@@ -29,11 +29,13 @@ logical function bitfield_check()
 Returns `.true.` if the `integer` type behaves as expected (e.g. that all bits are $0$ when the integer value is $0$).
 
 ```
-subroutine b%allocate( n [, capacity] )
-subroutine b%allocate( lb, ub [, capacity] )
+subroutine b%allocate( n [, source] [, capacity] )
+subroutine b%allocate( lb, ub [, source] [, capacity] )
+    integer[(sk)], intent(in) :: n, lb, ub, capacity
+    logical, intent(in) :: source
 subroutine b%allocate( [mold] [, capacity] )
 subroutine b%allocate( [source] [, capacity] )
-    integer[(sk)], intent(in) :: n, lb, ub, capacity
+    integer[(sk)], intent(in) :: capacity
     type(bitfield_t) :: mold, source
 ```
 Allocates an array of `n`, or of `(ub-lb+1)` bits, or of the same shape as `mold` or as `source`. 
