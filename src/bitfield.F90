@@ -391,48 +391,56 @@ contains
    end subroutine
    
    !********************************************************************************************
-   _PURE_ subroutine b_resize_sk(this,lb,ub,kwe,keep)
+   _PURE_ subroutine b_resize_sk(this,n,kwe,keep)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
-      integer(sk), intent(in) :: lb, ub
+      integer(sk), intent(in) :: n
       type(kwe_t) :: kwe
       logical, intent(in) :: keep
       optional :: kwe, keep
       
-      integer(sk) :: n, newcap
+      integer(sk) :: newcap
 
       call check_alloc( this, "b_resize_sk" )
 
-      n = ub - lb + 1
-      if (n > size(this%a,kind=sk) * l) then
+      if (n <= 0) then
+         this%n = 0
+         this%lb = 1
+         this%ub = 0
+         this%jmax = -1
+         if (this%strat == BITFIELD_GROWSHRINK) call b_recap1_sk( this ) )
+         return
+      else if (n > size(this%a,kind=sk) * l) then
          newcap = 2 * size(this%a,kind=sk) * l
          do while (n > newcap)
             newcap = 2*newcap
          end do
          call b_recap1_sk( this, kwe, newcap, keep )
+         this%n = n
+         this%ub = this%lb + n - 1
+         this%jmax = (this%n-1) / l   
       else if (3*n <= size(this%a,kind=sk) * l .and. this%strat == BITFIELD_GROWSHRINK) then
          newcap = size(this%a,kind=sk) * l / 2
          do while (3*n <= newcap)
             newcap = newcap / 2
          end do
+         this%n = n
+         this%ub = this%lb + n - 1
+         this%jmax = (this%n-1) / l   
          call b_recap1_sk( this, kwe, newcap, keep )
       end if
-      this%n = n
-      this%lb = lb
-      this%ub = ub
-      this%jmax = (this%n-1) / l   
    end subroutine
    
    !********************************************************************************************
-   _PURE_ subroutine b_resize(this,lb,ub,kwe,keep)
+   _PURE_ subroutine b_resize(this,n,kwe,keep)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: lb, ub
+      integer, intent(in) :: n
       type(kwe_t) :: kwe
       logical, intent(in) :: keep
       optional :: kwe, keep
       
-      call b_resize_sk( this, int(lb,kind=sk), int(ub,kind=sk), kwe, keep )  
+      call b_resize_sk( this, int(n,kind=sk), kwe, keep )  
    end subroutine
 
    !********************************************************************************************
