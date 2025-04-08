@@ -11,7 +11,9 @@ Beta version
 `type(bitfield_t) :: b` holds the resizable array of bits
 
 The interfaces of the procedures below are written for both the default integer and the
-`integer(kind=bitfield_size)` (which is likely the same as `integer(kind=int64)`). In the descriptions below one use `integer, parameter :: sk = bitfield_size`
+`integer(kind=bitfield_size)` (which is likely the same as `integer(kind=int64)`). In the descriptions below one use `integer, parameter :: sk = bitfield_size`.
+
+Many of the procedure can operate on an array section with some stride `istart:istop:inc`
 
 **All optional arguments must be coded with a keyword (`keyword=value`)**
 
@@ -30,7 +32,7 @@ subroutine b%allocate( [source] [, capacity] )
     integer[(sk)], intent(in) :: n, lb, ub, capacity
     type(bitfield_t) :: mold, source
 ```
-Allocates an array of `n`, or of `(ub-lb+1) bits, or of the same shape as `mold` or as `source`. 
+Allocates an array of `n`, or of `(ub-lb+1)` bits, or of the same shape as `mold` or as `source`. 
 - If `source` is coded, the content of `source` is copied to `b`.
 - If `capacity` is coded, `capacity` bits are actually reserved, allowing further 
   increase of the size without having to reallocate and copy the data. If `capacity` is
