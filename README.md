@@ -8,14 +8,18 @@ Limitations:
 
 Beta version
 
-`type(bitfield_t) :: b` holds the resizable array of bits
+`type(bitfield_t) :: b` holds the resizable array of bits.
+
+An array of bits is characterised by a size (number of bits). The lower bound is 1 by default,
+but it can also be any arbitrary integer value.
 
 The interfaces of the procedures below are written for both the default integer and the
-`integer(kind=bitfield_size)` (which is likely the same as `integer(kind=int64)`). In the descriptions below one use `integer, parameter :: sk = bitfield_size`.
+`integer(kind=bitfield_size)` (which is likely the same as `integer(kind=int64)`). 
+In the descriptions below one use `integer, parameter :: sk = bitfield_size`.
 
 Many of the procedures below can operate on array sections with some stride `istart:istop:inc`.
 
-**All optional arguments must be coded with a keyword (`keyword=value`)**
+**All optional arguments MUST be coded with a keyword (`keyword=value`).**
 
 ## basic manipulations
 
