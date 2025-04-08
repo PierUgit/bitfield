@@ -76,12 +76,13 @@ behavior). Optionaly, it can also decrease.
 - `strategy=BITFIELD_GROWSHRINK` : the capacity can also decrease
 
 ```
-subroutine b%resize( lb, ub [, keep])
-    integer[(sk)], intent(in) :: lb, ub
+subroutine b%resize( n [, keep])
+    integer[(sk)], intent(in) :: n
     logical, intent(in) :: keep
 ```
 Dynamically resizes the array by giving new lower and upper bounds. No reallocation is 
 needed if the new size is smaller or equal to the current capacity.
+- the lower bound is preserved (unless `n=0`, in which case the lower bound is reset to 1)
 - if `keep` is `.true.` (which is the default), the content of the array is preserved in 
   any case (otherwise it can be lost in case of reallocation).
   
