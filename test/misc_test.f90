@@ -81,7 +81,8 @@ if (ci /= bi) error stop "d5"
 call bi%append( ci )
 if (bi%count() /= 2400) error stop "d6"
 call bi%set_dynamic_capacity(BITFIELD_GROWSHRINK)
-call bi%resize(lb=-200,ub=-1)
+call bi%resize(200)
+call bi%setlb(-200)
 if (bi%count() /= 100) error stop "d7"
 call bi%deallocate()
 call ci%deallocate()
@@ -94,7 +95,7 @@ write(*,"(A40)",advance="no") "bitfield tests (setrange0 10**9 inc=1)..."
 call tictoc()
 call bi%allocate(1,10**7+1)
 call bi%set(10**7-1,1,-1,.true.)
-call bi%resize(1,10**9)
+call bi%resize(10**9)
 call bi%set(10**7,10**9,1,.false.)
 call tictoc(time)
 if (bi%count() /= 10**7-1) error stop
