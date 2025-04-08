@@ -13,6 +13,8 @@ Beta version
 The interfaces of the procedures below are written for both the default integer and the
 `integer(kind=bitfield_size)` (which is likely the same as `integer(kind=int64)`). In the descriptions below one use `integer, parameter :: sk = bitfield_size`
 
+**All optional arguments must be coded with a keyword (`keyword=value`)**
+
 ## basic manipulations
 
 ```
@@ -21,13 +23,14 @@ logical function bitfield_check()
 Returns `.true.` if the `integer` type behaves as expected (e.g. that all bits are $0$ when the integer value is $0$).
 
 ```
+subroutine b%allocate( n [, capacity] )
 subroutine b%allocate( lb, ub [, capacity] )
-subroutine b%allocate( mold [, capacity] )
-subroutine b%allocate( source [, capacity] )
-    integer[(sk)], intent(in) :: lb, ub, capacity
+subroutine b%allocate( [mold] [, capacity] )
+subroutine b%allocate( [source] [, capacity] )
+    integer[(sk)], intent(in) :: n, lb, ub, capacity
     type(bitfield_t) :: mold, source
 ```
-Allocates an array of `(ub-lb+1) bits, or of the same shape as `mold` or as `source`. 
+Allocates an array of `n`, or of `(ub-lb+1) bits, or of the same shape as `mold` or as `source`. 
 - If `source` is coded, the content of `source` is copied to `b`.
 - If `capacity` is coded, `capacity` bits are actually reserved, allowing further 
   increase of the size without having to reallocate and copy the data. If `capacity` is
