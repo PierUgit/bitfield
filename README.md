@@ -1,4 +1,4 @@
-# bitfield v0.3.3
+# bitfield v0.4.0
 
 Implementation of a resizable 1-bit logical array, stored in an integer array under 
 the hood. Not cpu-efficient at all, but memory efficient.
