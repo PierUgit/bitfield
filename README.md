@@ -308,8 +308,8 @@ Overloaded **formatted** I/Os. Writes or reads `"0"` or `"1"` characters, standi
   the lower bound is always $1$, otherwise the original lower bound is retained.
 
 ```
-write( unit ) b     ! not efficient
-read ( unit ) b     ! not efficient
+write( unit ) b     ! efficient
+read ( unit ) b     ! efficient
     type(bitfield_t) :: b
     integer :: unit
 ```
