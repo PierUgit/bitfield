@@ -7,11 +7,12 @@ implicit none
 bitfield: BLOCK
 
 real :: time
-integer :: i, n, ipass, j
+integer :: i, n, ipass, j, lu
 type(bitfield_t) :: bi, ci, di
 logical, allocatable :: li(:)
 double precision :: tic, toc
 integer, parameter :: INC1 = 1, INC2 = 5, INC3 = 49
+character(128) :: str
 logical :: foo
 
 if (.not.bitfield_check()) error stop "bitfield is not usable"
@@ -38,6 +39,24 @@ call bi%extract(0,20,1,ci)
 call ci%setlb(0)
 if (ci%getlb() /= 0) error stop "b"
 if (any(ci%fget() .neqv. bi%fget(0,20,1))) error stop 
+
+write(*,*) "PASSED"
+
+write(*,"(A)",advance="no") "bitfield tests 2bis..."
+
+!print "(DT)", bi
+write(str,"(DT)") bi
+read(str,"(DT)") di
+if (di /= bi) error stop "a"
+open(newunit=lu,file="bitfield_test.bin",form="unformatted")
+write(lu) bi
+close(lu)
+call di%set(.false.)
+open(newunit=lu,file="bitfield_test.bin",form="unformatted")
+read(lu) di
+close(lu)
+if (di /= bi) error stop "b"
+call di%deallocate()
 
 write(*,*) "PASSED"
 

@@ -1,4 +1,4 @@
-# bitfield v0.3.2
+# bitfield v0.3.3
 
 Implementation of a resizable 1-bit logical array, stored in an integer array under 
 the hood. Not cpu-efficient at all, but memory efficient.
@@ -18,6 +18,9 @@ The interfaces of the procedures below are written for both the default integer 
 In the descriptions below one use `integer, parameter :: sk = bitfield_size`.
 
 Many of the procedures below can operate on array sections with some stride `istart:istop:inc`.
+- All operations with strides different from 1 or -1 are not efficient
+- Some operations are efficient with strides equal 1 or -1
+- Some operations are efficient only with strides equal to 1
 
 **All optional arguments MUST be coded with a keyword (`keyword=value`).**
 
@@ -288,3 +291,29 @@ bool = ( b1 == b2 )           ! efficient
 bool = ( b1 /= b2 )           ! efficient
 ```
 Comparison operators
+
+
+## user defined I/Os
+
+```
+write( unit, '(DT)' ) b     ! not efficient
+read ( unit, '(DT)' ) b     ! not efficient
+    type(bitfield_t) :: b
+    integer :: unit   ! can also be a string in case of internal read/write
+```
+Overloaded **formatted** I/Os. Writes or reads `"0"` or `"1"` characters, standing for the 
+`.false.` or `.true.` values of the bitfield.
+- In the `read` version, `b` can be unallocated, or allocated with a size that is not 
+  large enough: it will be allocated and/or resized as needed. If it has to be allocated, 
+  the lower bound is always $1$, otherwise the original lower bound is retained.
+
+```
+write( unit ) b     ! not efficient
+read ( unit ) b     ! not efficient
+    type(bitfield_t) :: b
+    integer :: unit
+```
+Overloaded **unformatted** I/Os. 
+- In the `read` version, `b` can be unallocated, or allocated with a size that is not 
+  large enough: it will be allocated and/or resized as needed. If it has to be allocated, 
+  the lower bound is read from the file, otherwise the existing lower bound is retained.

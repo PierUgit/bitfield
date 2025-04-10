@@ -22,6 +22,7 @@ implicit none
    public :: assignment(=), operator(==), operator(/=)
    public :: operator(.not.), operator(.and.), operator(.or.)
    public :: operator(.eqv.), operator(.neqv.)
+   public :: write(formatted), read(formatted), write(unformatted), read(unformatted)
    public :: BITFIELD_GROWONLY, BITFIELD_GROWSHRINK
 
    integer, parameter :: k0 = kind(0)
@@ -80,8 +81,12 @@ implicit none
       procedure, public :: getcapacity => b_getcapacity
       procedure, public :: getlb => b_getlb
       procedure, public :: getub => b_getub
-      procedure, public :: setlb => b_setlb
-      procedure, public :: setub => b_setub
+      procedure :: setlb_k0 => b_setlb
+      procedure :: setlb_sk => b_setlb_sk
+      generic, public :: setlb => setlb_k0, setlb_sk
+      procedure :: setub_k0 => b_setub
+      procedure :: setub_sk => b_setub_sk
+      generic, public :: setub => setub_k0, setub_sk
    
       procedure :: set0 => b_set0
       procedure :: set0_sk => b_set0_sk
@@ -165,6 +170,19 @@ implicit none
    end interface
    interface operator(/=)
       module procedure b_notequal
+   end interface
+   
+   interface write(formatted)
+      module procedure b_write_f
+   end interface
+   interface read(formatted)
+      module procedure b_read_f
+   end interface
+   interface write(unformatted)
+      module procedure b_write_u
+   end interface
+   interface read(unformatted)
+      module procedure b_read_u
    end interface
 
 contains
@@ -1422,6 +1440,109 @@ contains
    
    
    
+   !********************************************************************************************
+   subroutine b_write_f(this,unit,iotype,v_list,iostat,iomsg)
+   !********************************************************************************************
+      class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: unit
+      character(*), intent(in) :: iotype
+      integer, intent(in)  :: v_list(:)
+      integer, intent(out) :: iostat
+      character(*), intent(inout) :: iomsg
+      
+      character(len=l) :: str
+      character(len=:), allocatable :: f1, f2
+      integer :: i, ii
+      integer(sk) :: j
+      
+      write( str, "(I0)" ) l
+      f1 = "(B" // trim(str) // "." // trim(str) // ")"
+      f2 = "(" // trim(str) // "A1)"
+      
+      do j = 0, this%jmax - 1
+         write( str, f1 ) this%a(j)
+         write( unit, f2, iostat=iostat, iomsg=iomsg ) (str(i:i),i=l,1,-1)
+         if (iostat /= 0) return
+      end do
+      write( str, f1 ) this%a(this%jmax)
+      call indeces( this, this%ub, j, ii )
+      write( unit, f2, iostat=iostat, iomsg=iomsg ) (str(i:i),i=l,l-ii,-1)
+   end subroutine
+  
+   !********************************************************************************************
+   subroutine b_read_f(this,unit,iotype,v_list,iostat,iomsg)
+   !********************************************************************************************
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: unit
+      character(*), intent(in) :: iotype
+      integer, intent(in)  :: v_list(:)
+      integer, intent(out) :: iostat
+      character(*), intent(inout) :: iomsg
+      
+      character(len=l) :: str, str2
+      character(len=:), allocatable :: f1, f2
+      integer :: i
+      integer(sk) :: j, c0
+      
+      write( str, "(I0)" ) l
+      f1 = "(B" // trim(str) // ")"   ! f1 = "(B64)"
+      f2 = "(A" // trim(str) // ")"   ! f2 = "(A64)"
+      
+      if (.not.b_allocated( this)) call this%allocate( 0 )
+      c0 = this%getcapacity()
+      iostat = 0
+      do while (iostat == 0)
+         str = ""
+         read( unit, f2, iostat=iostat, iomsg=iomsg ) str
+         if (iostat /= 0 .and. iostat /= IOSTAT_EOR .and. iostat /= IOSTAT_END) return
+         call b_resize_sk( this, this%n+len_trim(str) )
+         do i = 1, l
+            str2(i:i) = str(l-i+1:l-i+1)
+         end do
+         read( str2, f1 ) this%a(this%jmax)
+      end do
+      if (this%getcapacity() /= c0) call this%recap()
+      iostat = 0
+   end subroutine
+  
+   !********************************************************************************************
+   subroutine b_write_u(this,unit,iostat,iomsg)
+   !********************************************************************************************
+      class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: unit
+      integer, intent(out) :: iostat
+      character(*), intent(inout) :: iomsg
+      
+      write( unit, iostat=iostat, iomsg=iomsg ) this%n, this%lb, this%a(0:this%jmax)
+   end subroutine
+  
+   !********************************************************************************************
+   subroutine b_read_u(this,unit,iostat,iomsg)
+   !********************************************************************************************
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: unit
+      integer, intent(out) :: iostat
+      character(*), intent(inout) :: iomsg
+      
+      integer(sk) :: n, lb, c0
+            
+      read( unit, iostat=iostat, iomsg=iomsg ) n, lb
+      if (iostat /= 0) return
+      if (b_allocated(this)) then
+         if (this%n < n) then
+            c0 = this%getcapacity()
+            call this%resize( n, keep=.false. )
+            if (this%getcapacity() /= c0) call this%recap()
+         end if
+      else
+         call this%allocate(n)
+         call this%setlb(lb)
+      end if
+      read( unit, iostat=iostat, iomsg=iomsg ) this%a(0:this%jmax)
+   end subroutine
+   
+   
+
    !********************************************************************************************
    _PURE_ subroutine indeces(this,i,j,ii)
    !********************************************************************************************
