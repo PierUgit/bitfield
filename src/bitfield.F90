@@ -720,16 +720,16 @@ contains
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ recursive subroutine b_setrange0_sk(this,istart,istop,inc,v,kwe,mt)
+   _PURE_ recursive subroutine b_setrange0_sk(this,istart,istop,inc,v,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: istart, istop, inc
-      logical, intent(in) :: v, mt
+      logical, intent(in) :: v, nthreads
       type(kwe_t) :: kwe
-      optional :: kwe, mt
+      optional :: kwe, nthreads
       
       integer(ik) :: a
-      integer :: iistart, iistop, k, it
+      integer :: iistart, iistop, k, it, nt
       integer(sk) :: jstart, jstop, j, i
       integer :: iir(l), iirs
       integer(sk), allocatable :: ista(:)
@@ -746,7 +746,7 @@ contains
 #ifdef DEBUG   
       call check_3index( this, istart, istop, inc, "b_setrange0_sk" )
 #endif
-      call mt_boundaries( this, istart, istop, inc, ista, mt )
+      call mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
       
       if (inc == 1) then
          a = merge(ones,zeros,v)
@@ -760,7 +760,7 @@ contains
             call mvbits(a,0,iistop+1,this%a(jstop),0)
          endif
       else if (inc <= l/minbatch) then
-         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,iir,iirs,a,k)
+         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,iir,iirs,a,k) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          call indeces(this,ista(it)      ,jstart,iistart)
          call indeces(this,ista(it+1)-inc,jstop ,iistop)
@@ -777,7 +777,7 @@ contains
          end do
          !$OMP END PARALLEL
       else
-         !$OMP PARALLEL PRIVATE(it)
+         !$OMP PARALLEL PRIVATE(it)  NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          do i = ista(it), ista(it+1)-inc, inc
             call b_set0_sk(this,i,v)
@@ -787,41 +787,41 @@ contains
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_setrange0(this,istart,istop,inc,v,kwe,mt)
+   _PURE_ subroutine b_setrange0(this,istart,istop,inc,v,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
-      logical, intent(in) :: v, mt
+      logical, intent(in) :: v, nthreads
       type(kwe_t) :: kwe
-      optional :: kwe, mt
+      optional :: kwe, nthreads
       
       call b_setrange0_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
-                         , int(inc,kind=sk), v, kwe, mt)
+                         , int(inc,kind=sk), v, kwe, nthreads)
    end subroutine 
    
    !********************************************************************************************
-   _PURE_ subroutine b_setall1(this,v,kwe,mt)
+   _PURE_ subroutine b_setall1(this,v,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v(:)
-      logical, intent(in) :: mt
+      logical, intent(in) :: nthreads
       type(kwe_t) :: kwe
-      optional :: kwe, mt
+      optional :: kwe, nthreads
       
-      call b_setrange1_sk( this, this%lb, this%ub, 1_sk, v, kwe, mt )
+      call b_setrange1_sk( this, this%lb, this%ub, 1_sk, v, kwe, nthreads )
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_setrange1_sk(this,istart,istop,inc,v,kwe,mt)
+   _PURE_ subroutine b_setrange1_sk(this,istart,istop,inc,v,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, intent(in) :: v(:)
       type(kwe_t) :: kwe
-      logical, intent(in) :: mt
-      optional :: kwe, mt
+      logical, intent(in) :: nthreads
+      optional :: kwe, nthreads
       
-      integer :: iistart, iistop, it
+      integer :: iistart, iistop, it, nt
       integer(sk) :: j, i, jstart, jstop, iv
       integer :: iir(l), iirs
       integer(ik) :: a
@@ -835,9 +835,9 @@ contains
 #ifdef DEBUG   
       call check_4index( this, istart, istop, inc, size(v,kind=sk), "b_setrange1_sk" )
 #endif
-      call mt_boundaries( this, istart, istop, inc, ista, mt )
+      call mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
 
-      !$OMP PARALLEL PRIVATE(it,iv)
+      !$OMP PARALLEL PRIVATE(it,iv) NUM_THREADS(nt)
       it = 0 ; !$ it = omp_get_thread_num()
       iv = 0
       do i = ista(it), ista(it+1)-inc, inc
@@ -848,17 +848,17 @@ contains
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_setrange1(this,istart,istop,inc,v,kwe,mt)
+   _PURE_ subroutine b_setrange1(this,istart,istop,inc,v,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
       logical, intent(in) :: v(:)
       type(kwe_t) :: kwe
-      logical, intent(in) :: mt
-      optional :: kwe, mt
+      logical, intent(in) :: nthreads
+      optional :: kwe, nthreads
       
       call b_setrange1_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
-                         , int(inc,kind=sk), v, kwe, mt )
+                         , int(inc,kind=sk), v, kwe, nthreads )
    end subroutine 
 
    
@@ -892,31 +892,31 @@ contains
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_getall(this,v,kwe,mt)
+   _PURE_ subroutine b_getall(this,v,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       logical, intent(out) :: v(:)
-      logical, intent(in) :: mt
+      logical, intent(in) :: nthreads
       type(kwe_t) :: kwe
-      optional :: kwe, mt
+      optional :: kwe, nthreads
       
-      call b_getrange_sk( this, this%lb, this%ub, 1_sk, v, kwe, mt )
+      call b_getrange_sk( this, this%lb, this%ub, 1_sk, v, kwe, nthreads )
    end subroutine 
    
    !********************************************************************************************
-   _PURE_ subroutine b_getrange_sk(this,istart,istop,inc,v,kwe,mt)
+   _PURE_ subroutine b_getrange_sk(this,istart,istop,inc,v,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, intent(out) :: v(:)
-      logical, intent(in) :: mt
+      logical, intent(in) :: nthreads
       type(kwe_t) :: kwe
-      optional :: kwe, mt
+      optional :: kwe, nthreads
       
       
       integer :: iistart, iistop
       integer(sk) :: i, i1, i2, iv, j, jstart, jstop
-      integer :: iir(l), iirs, it
+      integer :: iir(l), iirs, it, nt
       integer(sk), allocatable :: ista(:)
       
 #ifdef DEBUG
@@ -927,10 +927,10 @@ contains
 #ifdef DEBUG   
       call check_4index( this, istart, istop, inc, size(v,kind=sk), "b_getrange_sk" ) 
 #endif
-      call mt_boundaries( this, istart, istop, inc, ista, mt )
+      call mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
 
       if (0 < inc .and. inc <= l/minbatch) then
-         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,i1,i2,iirs,iir)
+         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,i1,i2,iirs,iir) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          call indeces( this, ista(it),       jstart, iistart)
          call indeces( this, ista(it+1)-inc, jstop , iistop )
@@ -946,7 +946,7 @@ contains
          end do
          !$OMP END PARALLEL
       else if (0 < -inc .and. -inc <= l/minbatch) then
-         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,i1,i2,iirs,iir)
+         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,i1,i2,iirs,iir) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          call indeces( this, ista(it),                                       jstart, iistart )
          call indeces( this, ista(it+1)-inc + mod(ista(it)-ista(it+1),-inc), jstop,  iistop  )
@@ -962,7 +962,7 @@ contains
          end do
          !$OMP END PARALLEL
       else
-         !$OMP PARALLEL PRIVATE(it,iv)
+         !$OMP PARALLEL PRIVATE(it,iv) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          iv = 0
          do i = ista(it), ista(it+1)-inc, inc
@@ -974,17 +974,17 @@ contains
    end subroutine 
          
    !********************************************************************************************
-   _PURE_ subroutine b_getrange(this,istart,istop,inc,v,kwe,mt)
+   _PURE_ subroutine b_getrange(this,istart,istop,inc,v,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       logical, intent(out) :: v(:)
-      logical, intent(in) :: mt
+      logical, intent(in) :: nthreads
       type(kwe_t) :: kwe
-      optional :: kwe, mt
+      optional :: kwe, nthreads
       
       call b_getrange_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
-                        , int(inc,kind=sk), v, kwe, mt )
+                        , int(inc,kind=sk), v, kwe, nthreads )
    end subroutine 
 
    !********************************************************************************************
@@ -1008,50 +1008,50 @@ contains
    end function 
 
    !********************************************************************************************
-   _PURE_ function b_fgetall(this,kwe,mt) result(v)
+   _PURE_ function b_fgetall(this,kwe,nthreads) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       logical, allocatable:: v(:)
-      logical, intent(in) :: mt
+      logical, intent(in) :: nthreads
       type(kwe_t) :: kwe
-      optional :: kwe, mt
+      optional :: kwe, nthreads
       
       allocate( v(this%lb:this%ub) )
-      call b_getall(this,v,kwe,mt)
+      call b_getall(this,v,kwe,nthreads)
    end function 
 
    !********************************************************************************************
-   _PURE_ function b_fgetrange_sk(this,istart,istop,inc,kwe,mt) result(v)
+   _PURE_ function b_fgetrange_sk(this,istart,istop,inc,kwe,nthreads) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, allocatable :: v(:)
-      logical, intent(in) :: mt
+      logical, intent(in) :: nthreads
       type(kwe_t) :: kwe
-      optional :: kwe, mt
+      optional :: kwe, nthreads
       
       integer(sk) :: n
       
       n = abs((istop-istart)/inc+1)
       allocate( v(n) )
-      call b_getrange_sk( this, istart, istop, inc, v, kwe, mt )   
+      call b_getrange_sk( this, istart, istop, inc, v, kwe, nthreads )   
    end function
 
    !********************************************************************************************
-   _PURE_ function b_fgetrange(this,istart,istop,inc,kwe,mt) result(v)
+   _PURE_ function b_fgetrange(this,istart,istop,inc,kwe,nthreads) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       logical, allocatable :: v(:)
-      logical, intent(in) :: mt
+      logical, intent(in) :: nthreads
       type(kwe_t) :: kwe
-      optional :: kwe, mt
+      optional :: kwe, nthreads
       
       integer :: n
       
       n = abs((istop-istart)/inc+1)
       allocate( v(n) )
-      call b_getrange( this, istart, istop, inc, v, kwe, mt )   
+      call b_getrange( this, istart, istop, inc, v, kwe, nthreads )   
    end function
 
 
@@ -1711,21 +1711,21 @@ contains
    end subroutine
    
    !********************************************************************************************
-   _PURE_ subroutine  mt_boundaries( this, istart, istop, inc, ista, mt )
+   _PURE_ subroutine  mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
    !********************************************************************************************
       type( bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       integer(sk), allocatable, intent(out) :: ista(:)
       logical, intent(in) :: mt
+      integer, intent(out) :: nt
       optional :: mt
       
-      integer :: nt, it
-      logical :: mt___
+      integer :: it
+            
+      nt = 1 ; if (present(nthreads)) nt = nthreads
+      !$ if (nt <= 0) nt = omp_get_max_threads()
+      nt = max( nt, 1 )
       
-      mt___ = .false. ; if (present(mt)) mt___ = mt
-      
-      nt = 1
-      !$ if (mt___) nt = omp_get_max_threads()
       allocate( ista(0:nt) )
       ista(0) = istart; ista(nt) = istop+inc
       do it = 1, nt-1
