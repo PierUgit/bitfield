@@ -724,7 +724,8 @@ contains
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: istart, istop, inc
-      logical, intent(in) :: v, nthreads
+      logical, intent(in) :: v
+      integer, intent(in) :: nthreads
       type(kwe_t) :: kwe
       optional :: kwe, nthreads
       
@@ -791,7 +792,8 @@ contains
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
-      logical, intent(in) :: v, nthreads
+      logical, intent(in) :: v
+      integer, intent(in) :: nthreads
       type(kwe_t) :: kwe
       optional :: kwe, nthreads
       
@@ -804,7 +806,7 @@ contains
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v(:)
-      logical, intent(in) :: nthreads
+      integer, intent(in) :: nthreads
       type(kwe_t) :: kwe
       optional :: kwe, nthreads
       
@@ -818,7 +820,7 @@ contains
       integer(sk), intent(in) :: istart, istop, inc
       logical, intent(in) :: v(:)
       type(kwe_t) :: kwe
-      logical, intent(in) :: nthreads
+      integer, intent(in) :: nthreads
       optional :: kwe, nthreads
       
       integer :: iistart, iistop, it, nt
@@ -854,7 +856,7 @@ contains
       integer, intent(in) :: istart, istop, inc
       logical, intent(in) :: v(:)
       type(kwe_t) :: kwe
-      logical, intent(in) :: nthreads
+      integer, intent(in) :: nthreads
       optional :: kwe, nthreads
       
       call b_setrange1_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
@@ -896,7 +898,7 @@ contains
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       logical, intent(out) :: v(:)
-      logical, intent(in) :: nthreads
+      integer, intent(in) :: nthreads
       type(kwe_t) :: kwe
       optional :: kwe, nthreads
       
@@ -909,7 +911,7 @@ contains
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, intent(out) :: v(:)
-      logical, intent(in) :: nthreads
+      integer, intent(in) :: nthreads
       type(kwe_t) :: kwe
       optional :: kwe, nthreads
       
@@ -979,7 +981,7 @@ contains
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       logical, intent(out) :: v(:)
-      logical, intent(in) :: nthreads
+      integer, intent(in) :: nthreads
       type(kwe_t) :: kwe
       optional :: kwe, nthreads
       
@@ -1012,7 +1014,7 @@ contains
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       logical, allocatable:: v(:)
-      logical, intent(in) :: nthreads
+      integer, intent(in) :: nthreads
       type(kwe_t) :: kwe
       optional :: kwe, nthreads
       
@@ -1026,7 +1028,7 @@ contains
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, allocatable :: v(:)
-      logical, intent(in) :: nthreads
+      integer, intent(in) :: nthreads
       type(kwe_t) :: kwe
       optional :: kwe, nthreads
       
@@ -1043,7 +1045,7 @@ contains
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       logical, allocatable :: v(:)
-      logical, intent(in) :: nthreads
+      integer, intent(in) :: nthreads
       type(kwe_t) :: kwe
       optional :: kwe, nthreads
       
@@ -1716,9 +1718,9 @@ contains
       type( bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       integer(sk), allocatable, intent(out) :: ista(:)
-      logical, intent(in) :: mt
+      integer, intent(in) :: nthreads
       integer, intent(out) :: nt
-      optional :: mt
+      optional :: nthreads
       
       integer :: it
             

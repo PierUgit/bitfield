@@ -32,7 +32,8 @@ Many of the procedures below can operate on array sections with some stride `ist
 **Thread-safety**
 - The procedures are thread-safe, but operating on the same bitfield from different threads is **not thread-safe**.
 - However, some of the inefficient operations can be optionally run on several threads,
-  by coding the optional parameter `mt=.true.`
+  by coding the optional parameter `nthreads=<value>` (if `0` is coded, the number of
+  threads is the default one).
 
 **All optional arguments MUST be coded with a keyword (`keyword=value`).**
 
@@ -189,20 +190,20 @@ subroutine b%set( i, bool )          ! not efficient
 Sets the bit at index `i` to the value of `bool`
 
 ```
-subroutine b%set(bool)                        ! efficient
-subroutine b%set(istart,istop,inc,bool,[mt])  ! efficient if |inc|==1
+subroutine b%set(bool)                              ! efficient
+subroutine b%set(istart,istop,inc,bool,[nthreads])  ! efficient if |inc|==1
     logical, intent(in) :: bool
     integer[(sk)], intent(in) :: istart, istop, inc
-    logical, intent(in) :: mt
+    integer, intent(in) :: nthreads
 ```
 Sets the whole bit array, or the bits at indeces `istart:istop:inc`, to the value of `bool`
 
 ```
-subroutine b%set(bool)                        ! not efficient
-subroutine b%set(istart,istop,inc,bool,[mt])  ! not efficient
+subroutine b%set(bool)                              ! not efficient
+subroutine b%set(istart,istop,inc,bool,[nthreads])  ! not efficient
     logical, intent(in) :: bool(:)
     integer[(sk)], intent(in) :: istart, istop, inc
-    logical, intent(in) :: mt
+    integer, intent(in) :: nthreads
 ```
 Sets the whole bit array, or the bits at indeces `istart:istop:inc`, to the values of `bool(:)`
 - the sizes must conform
@@ -216,14 +217,14 @@ logical function b%fget(i)        ! not efficient
 Gets the value of the bit at index `i` (either in `bool` or in the function result)
 
 ```
-subroutine b% get(bool)                        ! not efficient
-subroutine b% get(istart,istop,inc,bool,[mt])  ! not efficient
-function   b%fget()                            ! not efficient
-function   b%fget(istart,istop,inc,[mt])       ! not efficient
+subroutine b% get(bool)                              ! not efficient
+subroutine b% get(istart,istop,inc,bool,[nthreads])  ! not efficient
+function   b%fget()                                  ! not efficient
+function   b%fget(istart,istop,inc,[nthreads])       ! not efficient
     integer[(sk)], intent(in) :: istart, istop, inc
     logical, intent(out) :: bool(:)
     logical :: fget(:)
-    logical, intent(in) :: mt
+    integer, intent(in) :: nthreads
 ```
 Gets the values of the whole bit array, or the bits at indeces `istart:istop:inc`, either in
 the argument `bool` or in a function result.
