@@ -14,6 +14,7 @@
 module bitfield
 use iso_fortran_env
 use iso_c_binding
+!$ use omp_lib
 implicit none
 
    private
@@ -719,16 +720,19 @@ contains
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ recursive subroutine b_setrange0_sk(this,istart,istop,inc,v)
+   _PURE_ recursive subroutine b_setrange0_sk(this,istart,istop,inc,v,kwe,mt)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: istart, istop, inc
-      logical, intent(in) :: v
+      logical, intent(in) :: v, mt
+      type(kwe_t) :: kwe
+      optional :: kwe, mt
       
       integer(ik) :: a
-      integer :: iistart, iistop, k
+      integer :: iistart, iistop, k, it
       integer(sk) :: jstart, jstop, j, i
       integer :: iir(l), iirs
+      integer(sk), allocatable :: ista(:)
       
       if (inc < 0) then
          call b_setrange0_sk(this,istop+mod(istart-istop,-inc),istart,-inc,v)
@@ -742,6 +746,7 @@ contains
 #ifdef DEBUG   
       call check_3index( this, istart, istop, inc, "b_setrange0_sk" )
 #endif
+      call mt_boundaries( this, istart, istop, inc, ista, mt )
       
       if (inc == 1) then
          a = merge(ones,zeros,v)
@@ -755,8 +760,10 @@ contains
             call mvbits(a,0,iistop+1,this%a(jstop),0)
          endif
       else if (inc <= l/minbatch) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
+         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,iir,iirs,a,k)
+         it = 0 ; !$ it = omp_get_thread_num()
+         call indeces(this,ista(it)      ,jstart,iistart)
+         call indeces(this,ista(it+1)-inc,jstop ,iistop)
          j = jstart
          iirs = 0
          do
@@ -768,42 +775,57 @@ contains
             this%a(j) = a
             if (j == jstop) exit
          end do
+         !$OMP END PARALLEL
       else
-         do i = istart, istop, inc
+         !$OMP PARALLEL PRIVATE(it)
+         it = 0 ; !$ it = omp_get_thread_num()
+         do i = ista(it), ista(it+1)-inc, inc
             call b_set0_sk(this,i,v)
          end do
+         !$OMP END PARALLEL
       end if
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_setrange0(this,istart,istop,inc,v)
+   _PURE_ subroutine b_setrange0(this,istart,istop,inc,v,kwe,mt)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
-      logical, intent(in) :: v
+      logical, intent(in) :: v, mt
+      type(kwe_t) :: kwe
+      optional :: kwe, mt
       
       call b_setrange0_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
-                         , int(inc,kind=sk),v)
+                         , int(inc,kind=sk), v, kwe, mt)
    end subroutine 
    
    !********************************************************************************************
-   _PURE_ subroutine b_setall1(this,v)
+   _PURE_ subroutine b_setall1(this,v,kwe,mt)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       logical, intent(in) :: v(:)
+      logical, intent(in) :: mt
+      type(kwe_t) :: kwe
+      optional :: kwe, mt
       
-      call b_setrange1_sk( this, this%lb, this%ub, 1_sk, v )
+      call b_setrange1_sk( this, this%lb, this%ub, 1_sk, v, kwe, mt )
    end subroutine 
 
-   _PURE_ subroutine b_setrange1_sk(this,istart,istop,inc,v)
+   !********************************************************************************************
+   _PURE_ subroutine b_setrange1_sk(this,istart,istop,inc,v,kwe,mt)
+   !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, intent(in) :: v(:)
+      type(kwe_t) :: kwe
+      logical, intent(in) :: mt
+      optional :: kwe, mt
       
-      integer :: iistart, iistop
+      integer :: iistart, iistop, it
       integer(sk) :: j, i, jstart, jstop, iv
       integer :: iir(l), iirs
       integer(ik) :: a
+      integer(sk), allocatable :: ista(:)
       
 #ifdef DEBUG   
       call check_alloc( this, "b_setrange1_sk" )
@@ -813,23 +835,30 @@ contains
 #ifdef DEBUG   
       call check_4index( this, istart, istop, inc, size(v,kind=sk), "b_setrange1_sk" )
 #endif
-      
+      call mt_boundaries( this, istart, istop, inc, ista, mt )
+
+      !$OMP PARALLEL PRIVATE(it,iv)
+      it = 0 ; !$ it = omp_get_thread_num()
       iv = 0
-      do i = istart, istop, inc
+      do i = ista(it), ista(it+1)-inc, inc
          iv = iv+1
          call b_set0_sk( this, i, v(iv) )
       end do
+      !$OMP END PARALLEL
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_setrange1(this,istart,istop,inc,v)
+   _PURE_ subroutine b_setrange1(this,istart,istop,inc,v,kwe,mt)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
       logical, intent(in) :: v(:)
+      type(kwe_t) :: kwe
+      logical, intent(in) :: mt
+      optional :: kwe, mt
       
       call b_setrange1_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
-                         , int(inc,kind=sk), v )
+                         , int(inc,kind=sk), v, kwe, mt )
    end subroutine 
 
    
@@ -863,24 +892,32 @@ contains
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_getall(this,v)
+   _PURE_ subroutine b_getall(this,v,kwe,mt)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       logical, intent(out) :: v(:)
+      logical, intent(in) :: mt
+      type(kwe_t) :: kwe
+      optional :: kwe, mt
       
-      call b_getrange_sk( this, this%lb, this%ub, 1_sk, v )
+      call b_getrange_sk( this, this%lb, this%ub, 1_sk, v, kwe, mt )
    end subroutine 
    
    !********************************************************************************************
-   _PURE_ subroutine b_getrange_sk(this,istart,istop,inc,v)
+   _PURE_ subroutine b_getrange_sk(this,istart,istop,inc,v,kwe,mt)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, intent(out) :: v(:)
+      logical, intent(in) :: mt
+      type(kwe_t) :: kwe
+      optional :: kwe, mt
+      
       
       integer :: iistart, iistop
       integer(sk) :: i, i1, i2, iv, j, jstart, jstop
-      integer :: iir(l), iirs
+      integer :: iir(l), iirs, it
+      integer(sk), allocatable :: ista(:)
       
 #ifdef DEBUG
       call check_alloc( this, "b_getrange_sk" )
@@ -890,10 +927,13 @@ contains
 #ifdef DEBUG   
       call check_4index( this, istart, istop, inc, size(v,kind=sk), "b_getrange_sk" ) 
 #endif
+      call mt_boundaries( this, istart, istop, inc, ista, mt )
 
       if (0 < inc .and. inc <= l/minbatch) then
-         call indeces( this, istart, jstart, iistart)
-         call indeces( this, istop , jstop , iistop )
+         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,i1,i2,iirs,iir)
+         it = 0 ; !$ it = omp_get_thread_num()
+         call indeces( this, ista(it),       jstart, iistart)
+         call indeces( this, ista(it+1)-inc, jstop , iistop )
          j = jstart
          i1 = 1
          iirs = 0
@@ -904,9 +944,12 @@ contains
             if (j == jstop) exit
             i1 = i2+1
          end do
+         !$OMP END PARALLEL
       else if (0 < -inc .and. -inc <= l/minbatch) then
-         call indeces( this, istart,                         jstart, iistart )
-         call indeces( this, istop + mod(istart-istop,-inc), jstop,  iistop  )
+         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,i1,i2,iirs,iir)
+         it = 0 ; !$ it = omp_get_thread_num()
+         call indeces( this, ista(it),                                       jstart, iistart )
+         call indeces( this, ista(it+1)-inc + mod(ista(it)-ista(it+1),-inc), jstop,  iistop  )
          j = jstop
          i1 = size(v,kind=sk)
          iirs = 0
@@ -917,24 +960,31 @@ contains
             if (j == jstart) exit
             i1 = i2-1
          end do
+         !$OMP END PARALLEL
       else
+         !$OMP PARALLEL PRIVATE(it,iv)
+         it = 0 ; !$ it = omp_get_thread_num()
          iv = 0
-         do i = istart, istop, inc
+         do i = ista(it), ista(it+1)-inc, inc
             iv = iv+1
             call b_get0_sk(this,i,v(iv))
          end do
+         !$OMP END PARALLEL
       end if
    end subroutine 
          
    !********************************************************************************************
-   _PURE_ subroutine b_getrange(this,istart,istop,inc,v)
+   _PURE_ subroutine b_getrange(this,istart,istop,inc,v,kwe,mt)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       logical, intent(out) :: v(:)
+      logical, intent(in) :: mt
+      type(kwe_t) :: kwe
+      optional :: kwe, mt
       
       call b_getrange_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
-                        , int(inc,kind=sk), v )
+                        , int(inc,kind=sk), v, kwe, mt )
    end subroutine 
 
    !********************************************************************************************
@@ -958,41 +1008,50 @@ contains
    end function 
 
    !********************************************************************************************
-   _PURE_ function b_fgetall(this) result(v)
+   _PURE_ function b_fgetall(this,kwe,mt) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       logical, allocatable:: v(:)
+      logical, intent(in) :: mt
+      type(kwe_t) :: kwe
+      optional :: kwe, mt
       
       allocate( v(this%lb:this%ub) )
-      call b_getall(this,v)
+      call b_getall(this,v,kwe,mt)
    end function 
 
    !********************************************************************************************
-   _PURE_ function b_fgetrange_sk(this,istart,istop,inc) result(v)
+   _PURE_ function b_fgetrange_sk(this,istart,istop,inc,kwe,mt) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       logical, allocatable :: v(:)
+      logical, intent(in) :: mt
+      type(kwe_t) :: kwe
+      optional :: kwe, mt
       
       integer(sk) :: n
       
       n = abs((istop-istart)/inc+1)
       allocate( v(n) )
-      call b_getrange_sk( this, istart, istop, inc, v )   
+      call b_getrange_sk( this, istart, istop, inc, v, kwe, mt )   
    end function
 
    !********************************************************************************************
-   _PURE_ function b_fgetrange(this,istart,istop,inc) result(v)
+   _PURE_ function b_fgetrange(this,istart,istop,inc,kwe,mt) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       logical, allocatable :: v(:)
+      logical, intent(in) :: mt
+      type(kwe_t) :: kwe
+      optional :: kwe, mt
       
       integer :: n
       
       n = abs((istop-istart)/inc+1)
       allocate( v(n) )
-      call b_getrange(this,istart,istop,inc,v)   
+      call b_getrange( this, istart, istop, inc, v, kwe, mt )   
    end function
 
 
@@ -1651,6 +1710,32 @@ contains
       end if
    end subroutine
    
+   !********************************************************************************************
+   _PURE_ subroutine  mt_boundaries( this, istart, istop, inc, ista, mt )
+   !********************************************************************************************
+      type( bitfield_t), intent(in) :: this
+      integer(sk), intent(in) :: istart, istop, inc
+      integer(sk), allocatable, intent(out) :: ista(:)
+      logical, intent(in) :: mt
+      optional :: mt
+      
+      integer :: nt, it
+      logical :: mt___
+      
+      mt___ = .false. ; if (present(mt)) mt___ = mt
+      
+      nt = 1
+      !$ if (mt___) nt = omp_get_max_threads()
+      allocate( ista(0:nt) )
+      ista(0) = istart; ista(nt) = istop+inc
+      do it = 1, nt-1
+         ista(it) = istart + it * inc * ((istop-istart)/(inc*nt))
+         do while ((ista(it)-this%lb)/l == (ista(it)+inc-this%lb)/l)
+            ista(it) = ista(it) + inc
+         end do
+      end do
+   end subroutine
+      
    !********************************************************************************************
    _PURE_ subroutine check_alloc( this, name )
    !********************************************************************************************

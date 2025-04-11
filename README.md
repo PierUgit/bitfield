@@ -6,6 +6,7 @@ Implementation of a 1-bit logical array, stored in an integer array under
 the hood. Not cpu-efficient at all, but memory efficient. Main features:
 - Dynamically resizable array
 - Many operations can be applied on array sections, with a stride.
+- built-in multithreading
 
 ## Limitations
 
@@ -28,8 +29,10 @@ Many of the procedures below can operate on array sections with some stride `ist
 - Some operations are efficient with strides equal 1 or -1
 - Some operations are efficient only with strides equal to 1
 
-Thread-safety
+**Thread-safety**
 - The procedures are thread-safe, but operating on the same bitfield from different threads is **not thread-safe**.
+- However, some of the inefficient operations can be optionally run on several threads,
+  by coding the optional parameter `mt=.true.`
 
 **All optional arguments MUST be coded with a keyword (`keyword=value`).**
 
@@ -186,18 +189,20 @@ subroutine b%set( i, bool )          ! not efficient
 Sets the bit at index `i` to the value of `bool`
 
 ```
-subroutine b%set(bool)              ! efficient
-subroutine b%set(istart,istop,inc,bool)  ! efficient
+subroutine b%set(bool)                        ! efficient
+subroutine b%set(istart,istop,inc,bool,[mt])  ! efficient if |inc|==1
     logical, intent(in) :: bool
-    integer[(sk)] :: istart, istop, inc
+    integer[(sk)], intent(in) :: istart, istop, inc
+    logical, intent(in) :: mt
 ```
 Sets the whole bit array, or the bits at indeces `istart:istop:inc`, to the value of `bool`
 
 ```
-subroutine b%set(bool)              ! efficient
-subroutine b%set(istart,istop,inc,bool)  ! efficient
+subroutine b%set(bool)                        ! not efficient
+subroutine b%set(istart,istop,inc,bool,[mt])  ! not efficient
     logical, intent(in) :: bool(:)
     integer[(sk)], intent(in) :: istart, istop, inc
+    logical, intent(in) :: mt
 ```
 Sets the whole bit array, or the bits at indeces `istart:istop:inc`, to the values of `bool(:)`
 - the sizes must conform
@@ -211,13 +216,14 @@ logical function b%fget(i)        ! not efficient
 Gets the value of the bit at index `i` (either in `bool` or in the function result)
 
 ```
-subroutine b% get(bool)              ! not efficient
-subroutine b% get(istart,istop,inc,bool)  ! not efficient
-function   b%fget()                  ! not efficient
-function   b%fget(istart,istop,inc)       ! not efficient
+subroutine b% get(bool)                        ! not efficient
+subroutine b% get(istart,istop,inc,bool,[mt])  ! not efficient
+function   b%fget()                            ! not efficient
+function   b%fget(istart,istop,inc,[mt])       ! not efficient
     integer[(sk)], intent(in) :: istart, istop, inc
     logical, intent(out) :: bool(:)
     logical :: fget(:)
+    logical, intent(in) :: mt
 ```
 Gets the values of the whole bit array, or the bits at indeces `istart:istop:inc`, either in
 the argument `bool` or in a function result.
