@@ -1,14 +1,20 @@
 # bitfield v0.4.0
 
-Implementation of a resizable 1-bit logical array, stored in an integer array under 
-the hood. Not cpu-efficient at all, but memory efficient.
-
-Limitations:
-- 1D only
-
 Beta version
 
-`type(bitfield_t) :: b` holds the resizable array of bits.
+Implementation of a 1-bit logical array, stored in an integer array under 
+the hood. Not cpu-efficient at all, but memory efficient. Main features:
+- Dynamically resizable array
+- Many operations can be applied on array sections, with a stride.
+
+## Limitations
+
+1D only
+
+
+## API
+
+`type(bitfield_t) :: b` holds a resizable array of bits.
 
 An array of bits is characterised by a size (number of bits). The lower bound is 1 by default,
 but it can also be any arbitrary integer value.
@@ -22,9 +28,12 @@ Many of the procedures below can operate on array sections with some stride `ist
 - Some operations are efficient with strides equal 1 or -1
 - Some operations are efficient only with strides equal to 1
 
+Thread-safety
+- The procedures are thread-safe, but operating on the same bitfield from different threads is **not thread-safe**.
+
 **All optional arguments MUST be coded with a keyword (`keyword=value`).**
 
-## basic manipulations
+### basic manipulations
 
 ```
 logical function bitfield_check()
@@ -75,7 +84,7 @@ Reset respectively the lower bound and the upper bound of the array.
 - The size is unchanged!
 
 
-## dynamic size features
+### dynamic size features
 
 ```
 subroutine b%set_dynamic_capacity( strategy )
@@ -126,7 +135,7 @@ subroutine b%drop( [k] )
 Drop the `k` last elements of the bit array. If `k` is not coded, the last element is 
 dropped. The size and capacity of `b` are modified as needed.
  
-## defined intrinsic assignements
+### defined intrinsic assignements
 
 ```
 type(bitfield_t) :: b, c
@@ -166,7 +175,7 @@ bool = b                      ! not efficient
 - this assignment is not CPU efficient
 
 
-## bit manipulations
+### bit manipulations
 
 In all the procedures below, the increment `inc` can be negative
 ```
@@ -233,7 +242,7 @@ Replaces the bits of `b` at indeces `istart:istop:inc` istart the bits of the `c
 - the sizes must conform
 
 
-## logical operations
+### logical operations
 
 ```
 integer function b%count()                 ! efficient
@@ -264,7 +273,7 @@ subroutine b%not(istart,istop,inc)       ! efficient if |inc|==1
 Negates all the bits of the array, or the bits at indeces `istart:istop:inc`
 
 
-## overloaded operators
+### overloaded operators
 
 ```
 type(bitfield_t) :: b, c
@@ -293,7 +302,7 @@ bool = ( b1 /= b2 )           ! efficient
 Comparison operators
 
 
-## user defined I/Os
+### user defined I/Os
 
 ```
 write( unit, '(DT)' ) b     ! not efficient
