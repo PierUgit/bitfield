@@ -761,7 +761,8 @@ contains
             call mvbits(a,0,iistop+1,this%a(jstop),0)
          endif
       else if (inc <= l/minbatch) then
-         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,iir,iirs,a,k) NUM_THREADS(nt)
+         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,iir,iirs,a,k) &
+         !$OMP          IF(present(nthreads)) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          call indeces(this,ista(it)      ,jstart,iistart)
          call indeces(this,ista(it+1)-inc,jstop ,iistop)
@@ -778,7 +779,7 @@ contains
          end do
          !$OMP END PARALLEL
       else
-         !$OMP PARALLEL PRIVATE(it)  NUM_THREADS(nt)
+         !$OMP PARALLEL PRIVATE(it) IF(present(nthreads)) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          do i = ista(it), ista(it+1)-inc, inc
             call b_set0_sk(this,i,v)
@@ -839,7 +840,7 @@ contains
 #endif
       call mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
 
-      !$OMP PARALLEL PRIVATE(it,iv) NUM_THREADS(nt)
+      !$OMP PARALLEL PRIVATE(it,iv) IF(present(nthreads)) NUM_THREADS(nt)
       it = 0 ; !$ it = omp_get_thread_num()
       iv = 0
       do i = ista(it), ista(it+1)-inc, inc
@@ -932,7 +933,8 @@ contains
       call mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
 
       if (0 < inc .and. inc <= l/minbatch) then
-         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,i1,i2,iirs,iir) NUM_THREADS(nt)
+         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,i1,i2,iirs,iir) &
+         !$OMP          IF(present(nthreads)) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          call indeces( this, ista(it),       jstart, iistart)
          call indeces( this, ista(it+1)-inc, jstop , iistop )
@@ -948,7 +950,8 @@ contains
          end do
          !$OMP END PARALLEL
       else if (0 < -inc .and. -inc <= l/minbatch) then
-         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,i1,i2,iirs,iir) NUM_THREADS(nt)
+         !$OMP PARALLEL PRIVATE(it,j,jstart,jstop,iistart,iistop,i1,i2,iirs,iir) &
+         !$OMP          IF(present(nthreads)) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          call indeces( this, ista(it),                                       jstart, iistart )
          call indeces( this, ista(it+1)-inc + mod(ista(it)-ista(it+1),-inc), jstop,  iistop  )
@@ -964,7 +967,7 @@ contains
          end do
          !$OMP END PARALLEL
       else
-         !$OMP PARALLEL PRIVATE(it,iv) NUM_THREADS(nt)
+         !$OMP PARALLEL PRIVATE(it,iv) IF(present(nthreads)) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          iv = 0
          do i = ista(it), ista(it+1)-inc, inc
@@ -1099,7 +1102,7 @@ contains
          end if
       else
          call mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
-         !$OMP PARALLEL PRIVATE(it,isource) NUM_THREADS(nt)
+         !$OMP PARALLEL PRIVATE(it,isource) IF(present(nthreads)) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          isource = that%lb + (ista(it)-istart) / inc
          do i = ista(it), ista(it+1)-inc, inc
@@ -1176,7 +1179,7 @@ contains
          end if
       else
          call mt_boundaries( that, 1_sk, n, 1_sk, ista, nthreads, nt )
-         !$OMP PARALLEL PRIVATE(it,i) NUM_THREADS(nt)
+         !$OMP PARALLEL PRIVATE(it,i) IF(present(nthreads)) NUM_THREADS(nt)
          it = 0 ; !$ it = omp_get_thread_num()
          i = istart + (ista(it)-1)*inc
          do idest = ista(it), ista(it+1)-1
