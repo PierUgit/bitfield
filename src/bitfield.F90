@@ -1230,16 +1230,14 @@ contains
       call b_extract( this, istart, istop, inc, that, kwe, nthreads )
    end function
    
+   
 
    !********************************************************************************************
-   _PURE_ logical function b_allall(this,kwe,nthreads)
+   _PURE_ logical function b_allall(this)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
-      integer, intent(in) :: nthreads
-      type(kwe_t) :: kwe
-      optional :: kwe, nthreads
       
-      b_allall = b_allrange_sk( this, this%lb, this%ub, 1_sk, kwe, nthreads )
+      b_allall = b_allrange_sk( this, this%lb, this%ub, 1_sk )
    end function 
 
    !********************************************************************************************
@@ -1302,14 +1300,11 @@ contains
 
 
    !********************************************************************************************
-   _PURE_ logical function b_anyall(this,kwe,nthreads)
+   _PURE_ logical function b_anyall(this)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
-      integer, intent(in) :: nthreads
-      type(kwe_t) :: kwe
-      optional :: kwe, nthreads
       
-      b_anyall = b_anyrange_sk( this, this%lb, this%ub, 1_sk, kwe, nthreads )
+      b_anyall = b_anyrange_sk( this, this%lb, this%ub, 1_sk )
    end function 
 
    !********************************************************************************************
@@ -1373,14 +1368,11 @@ contains
 
 
    !********************************************************************************************
-   _PURE_ integer function b_countall(this,kwe,nthreads) result(v)
+   _PURE_ integer function b_countall(this) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
-      integer, intent(in) :: nthreads
-      type(kwe_t) :: kwe
-      optional :: kwe, nthreads
       
-      v = b_countrange_sk( this, this%lb, this%ub, 1_sk, kwe, nthreads )  
+      v = b_countrange_sk( this, this%lb, this%ub, 1_sk )  
    end function 
 
    !********************************************************************************************
@@ -1443,13 +1435,10 @@ contains
 
    
    !********************************************************************************************
-   _PURE_ subroutine b_notall(this,kwe,nthreads)
+   _PURE_ subroutine b_notall(this)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
-      integer, intent(in) :: nthreads
-      type(kwe_t) :: kwe
-      optional :: kwe, nthreads
-            
+           
       this%a(:) = not( this%a )
    end subroutine
    
@@ -1497,7 +1486,8 @@ contains
       type(kwe_t) :: kwe
       optional :: kwe, nthreads
       
-      call b_notrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) )  
+      call b_notrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) &
+                        , kwe, nthreads )  
    end subroutine 
 
    !********************************************************************************************

@@ -254,30 +254,34 @@ Replaces the bits of `b` at indeces `istart:istop:inc` istart the bits of the `c
 ### logical operations
 
 ```
-integer function b%count()                     ! efficient
-integer function b%count(istart,istop,inc)     ! efficient if |inc|==1
+integer function b%count()                                ! efficient
+integer function b%count(istart,istop,inc,[nthreads])     ! efficient if |inc|==1
     integer[(sk)], intent(in) :: istart, istop, inc
+    integer, intent(in) :: nthreads
 ```
 Counts the number of bits equal to ".true." in the whole array, or at indeces `istart:istop:inc`
 
 ```
-logical function b%all()                ! efficient
-logical function b%all(istart,istop,inc)     ! efficient if |inc|==1
+logical function b%all()                                ! efficient
+logical function b%all(istart,istop,inc,[nthreads])     ! efficient if |inc|==1
     integer[(sk)], intent(in) :: istart, istop, inc
+    integer, intent(in) :: nthreads
 ```
 Is `.true.` iif all the bits of the array, or all the bits at indeces `istart:istop:inc`, are `.true.`
 
 ```
-logical function b%any()                ! efficient
-logical function b%any(istart,istop,inc)     ! efficient if |inc|==1
+logical function b%any()                                ! efficient
+logical function b%any(istart,istop,inc,[nthreads])     ! efficient if |inc|==1
     integer[(sk)], intent(in) :: istart, istop, inc
+    integer, intent(in) :: nthreads
 ```
 Is `.true.` iif any bit of the array, or any bit at indeces `istart:istop:inc`, is `.true.`
 
 ```
-subroutine b%not()                  ! efficient
-subroutine b%not(istart,istop,inc)       ! efficient if |inc|==1
+subroutine b%not()                                  ! efficient
+subroutine b%not(istart,istop,inc,[nthreads])       ! efficient if |inc|==1
     integer[(sk)], intent(in) :: istart, istop, inc
+    integer, intent(in) :: nthreads
 ```
 Negates all the bits of the array, or the bits at indeces `istart:istop:inc`
 
