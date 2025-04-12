@@ -736,7 +736,7 @@ contains
       integer(sk), allocatable :: ista(:)
       
       if (inc < 0) then
-         call b_setrange0_sk(this,istop+mod(istart-istop,-inc),istart,-inc,v)
+         call b_setrange0_sk(this,istop+mod(istart-istop,-inc),istart,-inc,v,kwe,nthreads)
          return
       end if
       
@@ -1232,24 +1232,32 @@ contains
    
 
    !********************************************************************************************
-   _PURE_ logical function b_allall(this)
+   _PURE_ logical function b_allall(this,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
-      b_allall = b_allrange_sk( this, this%lb, this%ub, 1_sk )
+      b_allall = b_allrange_sk( this, this%lb, this%ub, 1_sk, kwe, nthreads )
    end function 
 
    !********************************************************************************************
-   _PURE_ recursive logical function b_allrange_sk(this,istart,istop,inc) result(v)
+   _PURE_ recursive logical function b_allrange_sk(this,istart,istop,inc,kwe,nthreads) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
-      
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
+     
       integer(sk) :: kstart, kstop
       type(bitfield_t) :: bb
+      integer :: it, nt
+      integer(sk), allocatable :: ista(:)
    
       if (inc < 0) then
-         v = b_allrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
+         v = b_allrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc,kwe,nthreads)
       else
          v = .true.
 #ifdef DEBUG   
@@ -1260,48 +1268,66 @@ contains
 #ifdef DEBUG   
          call check_3index( this, istart, istop, inc, "b_allrange_sk" )
 #endif
-         kstart = istart
-         do while (kstart <= istop)
-            kstop = min( kstart + (ll-1)*inc, istop )
+         call mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
+         
+         !$OMP PARALLEL PRIVATE(it,kstart,kstop) REDUCTION(.and.:v) &
+         !$OMP          IF(present(nthreads)) NUM_THREADS(nt)
+         it = 0 ; !$ it = omp_get_thread_num()
+         kstart = ista(it)
+         do while (kstart <= ista(it+1)-inc)
+            kstop = min( kstart + (ll-1)*inc, ista(it+1)-inc )
             call b_extract_sk( this, kstart, kstop, inc, bb )
             call set_end( bb )
             v = v .and. all( bb%a == ones )
-            if (.not.v) return
+            if (.not.v) exit
             kstart = kstop + inc
-         end do         
+         end do
+         !$OMP END PARALLEL         
       end if      
 
    end function 
 
    !********************************************************************************************
-   _PURE_ recursive logical function b_allrange(this,istart,istop,inc) result(v)
+   _PURE_ recursive logical function b_allrange(this,istart,istop,inc,kwe,nthreads) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
-      v = b_allrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) )
+      v = b_allrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) &
+                       , kwe, nthreads )
    end function 
 
 
    !********************************************************************************************
-   _PURE_ logical function b_anyall(this)
+   _PURE_ logical function b_anyall(this,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
-      b_anyall = b_anyrange_sk( this, this%lb, this%ub, 1_sk )
+      b_anyall = b_anyrange_sk( this, this%lb, this%ub, 1_sk, kwe, nthreads )
    end function 
 
    !********************************************************************************************
-   _PURE_ recursive logical function b_anyrange_sk(this,istart,istop,inc) result(v)
+   _PURE_ recursive logical function b_anyrange_sk(this,istart,istop,inc,kwe,nthreads) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
       integer(sk) :: kstart, kstop
       type(bitfield_t) :: bb
+      integer :: it, nt
+      integer(sk), allocatable :: ista(:)
    
       if (inc < 0) then
-         v = b_anyrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
+         v = b_anyrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc,kwe,nthreads)
       else
          v = .false.
 #ifdef DEBUG   
@@ -1312,49 +1338,67 @@ contains
 #ifdef DEBUG   
          call check_3index( this, istart, istop, inc, "b_anyrange_sk" )
 #endif
-         kstart = istart
-         do while (kstart <= istop)
-            kstop = min( kstart + (ll-1)*inc, istop )
+         call mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
+         
+         !$OMP PARALLEL PRIVATE(it,kstart,kstop) REDUCTION(.or.:v) &
+         !$OMP          IF(present(nthreads)) NUM_THREADS(nt)
+         it = 0 ; !$ it = omp_get_thread_num()
+         kstart = ista(it)
+         do while (kstart <= ista(it+1)-inc)
+            kstop = min( kstart + (ll-1)*inc, ista(it+1)-inc )
             call b_extract_sk( this, kstart, kstop, inc, bb )
             call clear_end( bb )
             v = v .or. any( bb%a /= zeros )
-            if (v) return
+            if (v) exit
             kstart = kstop + inc
          end do         
+         !$OMP END PARALLEL         
       end if      
 
    end function 
 
    !********************************************************************************************
-   _PURE_ recursive logical function b_anyrange(this,istart,istop,inc) result(v)
+   _PURE_ recursive logical function b_anyrange(this,istart,istop,inc,kwe,nthreads) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
-      v = b_anyrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) )
+      v = b_anyrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) &
+                         , kwe, nthreads )
    end function 
 
 
 
    !********************************************************************************************
-   _PURE_ integer function b_countall(this) result(v)
+   _PURE_ integer function b_countall(this,kwe,nthreads) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
-      v = b_countrange_sk( this, this%lb, this%ub, 1_sk )  
+      v = b_countrange_sk( this, this%lb, this%ub, 1_sk, kwe, nthreads )  
    end function 
 
    !********************************************************************************************
-   _PURE_ recursive integer function b_countrange_sk(this,istart,istop,inc) result(v)
+   _PURE_ recursive integer function b_countrange_sk(this,istart,istop,inc,kwe,nthreads) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
       integer(sk) :: kstart, kstop
       type(bitfield_t) :: bb
+      integer :: it, nt
+      integer(sk), allocatable :: ista(:)
    
       if (inc < 0) then
-         v = b_countrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
+         v = b_countrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc,kwe,nthreads)
       else
          v = 0
 #ifdef DEBUG   
@@ -1365,48 +1409,64 @@ contains
 #ifdef DEBUG   
          call check_3index( this, istart, istop, inc, "b_countrange_sk" )
 #endif
-         kstart = istart
-         do while (kstart <= istop)
-            kstop = min( kstart + (ll-1)*inc, istop )
+         call mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
+         
+         !$OMP PARALLEL PRIVATE(it,kstart,kstop) REDUCTION(+:v) &
+         !$OMP          IF(present(nthreads)) NUM_THREADS(nt)
+         it = 0 ; !$ it = omp_get_thread_num()
+         kstart = ista(it)
+         do while (kstart <= ista(it+1)-inc)
+            kstop = min( kstart + (ll-1)*inc, ista(it+1)-inc )
             call b_extract_sk( this, kstart, kstop, inc, bb )
             call clear_end( bb )
             v = v + sum( popcnt( bb%a ) )
             kstart = kstop + inc
          end do         
+         !$OMP END PARALLEL         
       end if      
 
    end function 
    
    !********************************************************************************************
-   _PURE_ recursive integer function b_countrange(this,istart,istop,inc) result(v)
+   _PURE_ integer function b_countrange(this,istart,istop,inc,kwe,nthreads) result(v)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
-      v = b_countrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) )
+      v = b_countrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) &
+                         , kwe, nthreads )
    end function 
 
 
    
    !********************************************************************************************
-   _PURE_ subroutine b_notall(this)
+   _PURE_ subroutine b_notall(this,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
             
       this%a(:) = not( this%a )
    end subroutine
    
    !********************************************************************************************
-   _PURE_ recursive subroutine b_notrange_sk(this,istart,istop,inc)
+   _PURE_ recursive subroutine b_notrange_sk(this,istart,istop,inc,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: istart, istop, inc
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
       integer(sk) :: kstart, kstop
       type(bitfield_t) :: bb
    
       if (inc < 0) then
-         call b_notrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc)
+         call b_notrange_sk(this,istop+mod(istart-istop,-inc),istart,-inc,kwe,nthreads)
       else
 #ifdef DEBUG   
          call check_alloc( this, "b_notrange_sk" )
@@ -1429,10 +1489,13 @@ contains
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ recursive subroutine b_notrange(this,istart,istop,inc)
+   _PURE_ subroutine b_notrange(this,istart,istop,inc,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
       call b_notrange_sk( this, int(istart,kind=sk), int(istop,kind=sk), int(inc,kind=sk) )  
    end subroutine 
