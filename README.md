@@ -199,7 +199,7 @@ subroutine b%set(istart,istop,inc,bool,[nthreads])  ! efficient if |inc|==1
 Sets the whole bit array, or the bits at indeces `istart:istop:inc`, to the value of `bool`
 
 ```
-subroutine b%set(bool)                              ! not efficient
+subroutine b%set(bool,[nthreads])                   ! not efficient
 subroutine b%set(istart,istop,inc,bool,[nthreads])  ! not efficient
     logical, intent(in) :: bool(:)
     integer[(sk)], intent(in) :: istart, istop, inc
@@ -217,9 +217,9 @@ logical function b%fget(i)        ! not efficient
 Gets the value of the bit at index `i` (either in `bool` or in the function result)
 
 ```
-subroutine b% get(bool)                              ! not efficient
+subroutine b% get(bool,[nthreads])                   ! not efficient
 subroutine b% get(istart,istop,inc,bool,[nthreads])  ! not efficient
-function   b%fget()                                  ! not efficient
+function   b%fget([nthreads])                        ! not efficient
 function   b%fget(istart,istop,inc,[nthreads])       ! not efficient
     integer[(sk)], intent(in) :: istart, istop, inc
     logical, intent(out) :: bool(:)
@@ -231,19 +231,21 @@ the argument `bool` or in a function result.
 - bool(:) must be allocated beforehand, and the sizes must conform
 
 ```
-subroutine b% extract(istart,istop,inc,c)     ! efficient if inc==1
-function   b%fextract(istart,istop,inc)       ! efficient if inc==1
+subroutine b% extract(istart,istop,inc,c,[nthreads])     ! efficient if inc==1
+function   b%fextract(istart,istop,inc,[nthreads])       ! efficient if inc==1
     integer[(sk)], intent(in) :: istart, istop, inc
     type(bitfield_t), intent(out) :: c
     type(bitfield_t) :: fextract
+    integer, intent(in) :: nthreads
 ```
 Extracts the bits at indeces `istart:istop:inc` to a new bit array
 - if `c` is allocated beforehand, it is first deallocated
 
 ```
-subroutine b%replace(istart,istop,inc,c)     ! efficient if inc==1
+subroutine b%replace(istart,istop,inc,c,[nthreads])     ! efficient if inc==1
     integer[(sk)], intent(in) :: istart, istop, inc
     type(bitfield_t), intent(in) :: c
+    integer, intent(in) :: nthreads
 ```
 Replaces the bits of `b` at indeces `istart:istop:inc` istart the bits of the `c`.
 - the sizes must conform
@@ -252,7 +254,7 @@ Replaces the bits of `b` at indeces `istart:istop:inc` istart the bits of the `c
 ### logical operations
 
 ```
-integer function b%count()                 ! efficient
+integer function b%count()                     ! efficient
 integer function b%count(istart,istop,inc)     ! efficient if |inc|==1
     integer[(sk)], intent(in) :: istart, istop, inc
 ```
@@ -270,7 +272,7 @@ logical function b%any()                ! efficient
 logical function b%any(istart,istop,inc)     ! efficient if |inc|==1
     integer[(sk)], intent(in) :: istart, istop, inc
 ```
-Is `.true.` iif any bit of the array, or any bits at indeces `istart:istop:inc`, is `.true.`
+Is `.true.` iif any bit of the array, or any bit at indeces `istart:istop:inc`, is `.true.`
 
 ```
 subroutine b%not()                  ! efficient

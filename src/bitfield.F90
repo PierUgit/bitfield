@@ -1059,15 +1059,19 @@ contains
 
    
    !********************************************************************************************
-   _PURE_ subroutine b_replace_sk(this,istart,istop,inc,that)
+   _PURE_ subroutine b_replace_sk(this,istart,istop,inc,that,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer(sk), intent(in) :: istart, istop, inc
       type(bitfield_t), intent(in) :: that
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
       integer :: iistart, iistop, iisource
       integer(sk) :: i, j, jstart, jstop, jsource, isource
-      integer :: iir(l), iirs
+      integer :: iir(l), iirs, it, nt
+      integer(sk), allocatable :: ista(:)
       
 #ifdef DEBUG
       call check_alloc( this, "b_replace_sk" )
@@ -1078,9 +1082,9 @@ contains
       call check_4index( this, istart, istop, inc, that%n, "b_replace_sk" )
 #endif
       
-      call indeces(this,istart,jstart,iistart)
-      call indeces(this,istop ,jstop ,iistop)
       if (inc == 1) then
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          if (jstart == jstop) then
             call mvbits(that%a(0),0,iistop-iistart+1,this%a(jstart),iistart)
          else
@@ -1094,38 +1098,49 @@ contains
             end do
          end if
       else
-         isource = 0
-         do i = istart, istop, inc
-            isource = isource + 1
+         call mt_boundaries( this, istart, istop, inc, ista, nthreads, nt )
+         !$OMP PARALLEL PRIVATE(it,isource) NUM_THREADS(nt)
+         it = 0 ; !$ it = omp_get_thread_num()
+         isource = that%lb + (ista(it)-istart) / inc
+         do i = ista(it), ista(it+1)-inc, inc
             call b_set0_sk( this, i, b_fget0_sk(that,isource) )
+            isource = isource + 1
          end do      
+         !$OMP END PARALLEL
       end if
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_replace(this,istart,istop,inc,that)
+   _PURE_ subroutine b_replace(this,istart,istop,inc,that,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
       type(bitfield_t), intent(in) :: that
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
       call b_replace_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
-                       , int(inc,kind=sk), that )
+                       , int(inc,kind=sk), that, kwe, nthreads )
    end subroutine 
 
 
 
    !********************************************************************************************
-   _PURE_ subroutine b_extract_sk(this,istart,istop,inc,that)
+   _PURE_ subroutine b_extract_sk(this,istart,istop,inc,that,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       type(bitfield_t), intent(inout) :: that
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
       integer :: iistart, iistop, iidest
       integer(sk) :: i, jstart, jstop, j, jdest, n, idest
-      integer :: iir(l), iirs
+      integer :: iir(l), iirs, it, nt
       logical :: v(l)
+      integer(sk), allocatable :: ista(:)
       
 #ifdef DEBUG
       call check_alloc( this, "b_extract_sk" )
@@ -1144,9 +1159,9 @@ contains
       end if
       
       call allocate_core(that,1_sk,n)
-      call indeces(this,istart,jstart,iistart)
-      call indeces(this,istop ,jstop ,iistop)
       if (inc == 1) then
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          if (jstart == jstop) then
             call mvbits(this%a(jstart),iistart,iistop-iistart+1,that%a(0),0)
          else
@@ -1160,41 +1175,56 @@ contains
             end do
          end if
       else
-         idest = 0
-         do i = istart, istop, inc
-            idest = idest + 1
+         call mt_boundaries( that, 1_sk, n, 1_sk, ista, nthreads, nt )
+         !$OMP PARALLEL PRIVATE(it,i) NUM_THREADS(nt)
+         it = 0 ; !$ it = omp_get_thread_num()
+         i = istart + (ista(it)-1)*inc
+         do idest = ista(it), ista(it+1)-1
             call b_set0_sk( that, idest, b_fget0_sk(this,i) )
+            i = i + inc
          end do
+         !$OMP END PARALLEL
       end if
    end subroutine 
 
    !********************************************************************************************
-   _PURE_ subroutine b_extract(this,istart,istop,inc,that)
+   _PURE_ subroutine b_extract(this,istart,istop,inc,that,kwe,nthreads)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       type(bitfield_t), intent(inout) :: that
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
       call b_extract_sk( this, int(istart,kind=sk), int(istop,kind=sk) &
-                       , int(inc,kind=sk), that )
+                       , int(inc,kind=sk), that, kwe, nthreads )
    end subroutine 
 
-   _PURE_ function b_fextract_sk(this,istart,istop,inc) result(that)
+   !********************************************************************************************
+   _PURE_ function b_fextract_sk(this,istart,istop,inc,kwe,nthreads) result(that)
+   !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer(sk), intent(in) :: istart, istop, inc
       type(bitfield_t) :: that
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
-      call b_extract_sk(this,istart,istop,inc,that)
+      call b_extract_sk( this, istart, istop, inc, that, kwe, nthreads )
    end function
       
    !********************************************************************************************
-   _PURE_ function b_fextract(this,istart,istop,inc) result(that)
+   _PURE_ function b_fextract(this,istart,istop,inc,kwe,nthreads) result(that)
    !********************************************************************************************
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       type(bitfield_t) :: that
+      integer, intent(in) :: nthreads
+      type(kwe_t) :: kwe
+      optional :: kwe, nthreads
       
-      call b_extract(this,istart,istop,inc,that)
+      call b_extract( this, istart, istop, inc, that, kwe, nthreads )
    end function
    
 
