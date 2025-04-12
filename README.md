@@ -1,4 +1,4 @@
-# bitfield v0.4.0
+# bitfield v0.5.0
 
 Beta version
 
@@ -32,7 +32,7 @@ Many of the procedures below can operate on array sections with some stride `ist
 **Thread-safety**
 - The procedures are thread-safe, but operating on the same bitfield from different threads is **not thread-safe**.
 - However, some of the inefficient operations can be optionally run on several threads,
-  by coding the optional parameter `nthreads=<value>` (if `0` is coded, the number of
+  by coding the optional parameter `nth=<value>` (if `0` is coded, the number of
   threads is the default one).
 
 **All optional arguments MUST be coded with a keyword (`keyword=value`).**
@@ -191,19 +191,19 @@ Sets the bit at index `i` to the value of `bool`
 
 ```
 subroutine b%set(bool)                              ! efficient
-subroutine b%set(istart,istop,inc,bool,[nthreads])  ! efficient if |inc|==1
+subroutine b%set(istart,istop,inc,bool,[nth])  ! efficient if |inc|==1
     logical, intent(in) :: bool
     integer[(sk)], intent(in) :: istart, istop, inc
-    integer, intent(in) :: nthreads
+    integer, intent(in) :: nth
 ```
 Sets the whole bit array, or the bits at indeces `istart:istop:inc`, to the value of `bool`
 
 ```
-subroutine b%set(bool,[nthreads])                   ! not efficient
-subroutine b%set(istart,istop,inc,bool,[nthreads])  ! not efficient
+subroutine b%set(bool,[nth])                   ! not efficient
+subroutine b%set(istart,istop,inc,bool,[nth])  ! not efficient
     logical, intent(in) :: bool(:)
     integer[(sk)], intent(in) :: istart, istop, inc
-    integer, intent(in) :: nthreads
+    integer, intent(in) :: nth
 ```
 Sets the whole bit array, or the bits at indeces `istart:istop:inc`, to the values of `bool(:)`
 - the sizes must conform
@@ -217,35 +217,35 @@ logical function b%fget(i)        ! not efficient
 Gets the value of the bit at index `i` (either in `bool` or in the function result)
 
 ```
-subroutine b% get(bool,[nthreads])                   ! not efficient
-subroutine b% get(istart,istop,inc,bool,[nthreads])  ! not efficient
-function   b%fget([nthreads])                        ! not efficient
-function   b%fget(istart,istop,inc,[nthreads])       ! not efficient
+subroutine b% get(bool,[nth])                   ! not efficient
+subroutine b% get(istart,istop,inc,bool,[nth])  ! not efficient
+function   b%fget([nth])                        ! not efficient
+function   b%fget(istart,istop,inc,[nth])       ! not efficient
     integer[(sk)], intent(in) :: istart, istop, inc
     logical, intent(out) :: bool(:)
     logical :: fget(:)
-    integer, intent(in) :: nthreads
+    integer, intent(in) :: nth
 ```
 Gets the values of the whole bit array, or the bits at indeces `istart:istop:inc`, either in
 the argument `bool` or in a function result.
 - bool(:) must be allocated beforehand, and the sizes must conform
 
 ```
-subroutine b% extract(istart,istop,inc,c,[nthreads])     ! efficient if inc==1
-function   b%fextract(istart,istop,inc,[nthreads])       ! efficient if inc==1
+subroutine b% extract(istart,istop,inc,c,[nth])     ! efficient if inc==1
+function   b%fextract(istart,istop,inc,[nth])       ! efficient if inc==1
     integer[(sk)], intent(in) :: istart, istop, inc
     type(bitfield_t), intent(out) :: c
     type(bitfield_t) :: fextract
-    integer, intent(in) :: nthreads
+    integer, intent(in) :: nth
 ```
 Extracts the bits at indeces `istart:istop:inc` to a new bit array
 - if `c` is allocated beforehand, it is first deallocated
 
 ```
-subroutine b%replace(istart,istop,inc,c,[nthreads])     ! efficient if inc==1
+subroutine b%replace(istart,istop,inc,c,[nth])     ! efficient if inc==1
     integer[(sk)], intent(in) :: istart, istop, inc
     type(bitfield_t), intent(in) :: c
-    integer, intent(in) :: nthreads
+    integer, intent(in) :: nth
 ```
 Replaces the bits of `b` at indeces `istart:istop:inc` istart the bits of the `c`.
 - the sizes must conform
@@ -255,33 +255,33 @@ Replaces the bits of `b` at indeces `istart:istop:inc` istart the bits of the `c
 
 ```
 integer function b%count()                                ! efficient
-integer function b%count(istart,istop,inc,[nthreads])     ! efficient if |inc|==1
+integer function b%count(istart,istop,inc,[nth])     ! efficient if |inc|==1
     integer[(sk)], intent(in) :: istart, istop, inc
-    integer, intent(in) :: nthreads
+    integer, intent(in) :: nth
 ```
 Counts the number of bits equal to ".true." in the whole array, or at indeces `istart:istop:inc`
 
 ```
 logical function b%all()                                ! efficient
-logical function b%all(istart,istop,inc,[nthreads])     ! efficient if |inc|==1
+logical function b%all(istart,istop,inc,[nth])     ! efficient if |inc|==1
     integer[(sk)], intent(in) :: istart, istop, inc
-    integer, intent(in) :: nthreads
+    integer, intent(in) :: nth
 ```
 Is `.true.` iif all the bits of the array, or all the bits at indeces `istart:istop:inc`, are `.true.`
 
 ```
 logical function b%any()                                ! efficient
-logical function b%any(istart,istop,inc,[nthreads])     ! efficient if |inc|==1
+logical function b%any(istart,istop,inc,[nth])     ! efficient if |inc|==1
     integer[(sk)], intent(in) :: istart, istop, inc
-    integer, intent(in) :: nthreads
+    integer, intent(in) :: nth
 ```
 Is `.true.` iif any bit of the array, or any bit at indeces `istart:istop:inc`, is `.true.`
 
 ```
 subroutine b%not()                                  ! efficient
-subroutine b%not(istart,istop,inc,[nthreads])       ! efficient if |inc|==1
+subroutine b%not(istart,istop,inc,[nth])       ! efficient if |inc|==1
     integer[(sk)], intent(in) :: istart, istop, inc
-    integer, intent(in) :: nthreads
+    integer, intent(in) :: nth
 ```
 Negates all the bits of the array, or the bits at indeces `istart:istop:inc`
 
