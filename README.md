@@ -1,4 +1,4 @@
-# bitfield v0.5.0
+# bitfield v0.5.1
 
 Beta version
 
