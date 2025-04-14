@@ -1,4 +1,4 @@
-# bitfield v0.5.1
+# bitfield v0.5.2
 
 Beta version
 
@@ -21,8 +21,11 @@ An array of bits is characterised by a size (number of bits). The lower bound is
 but it can also be any arbitrary integer value.
 
 The interfaces of the procedures below are written for both the default integer and the
-`integer(kind=bitfield_size)` (which is likely the same as `integer(kind=int64)`). 
-In the descriptions below one use `integer, parameter :: sk = bitfield_size`.
+`integer(kind=bitfield_size_t)` (which is the same as `integer(kind=c_size_t)`). In the (unlikely on current machines) case where `bitfield_size_t` is the default integer kind, 
+the code must be compiled with the `NO_DEFAULT_INT` macro to avoid ambiguous interfaces
+and compilation errors.
+
+In the descriptions below one uses `integer, parameter :: sk = bitfield_size_t`.
 
 Many of the procedures below can operate on array sections with some stride `istart:istop:inc`.
 - All operations with strides different from 1 or -1 are not efficient

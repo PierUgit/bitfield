@@ -1,9 +1,16 @@
 !#define DEBUG
 
-#ifndef DEBUG
-#define _PURE_ pure
-#else
+#ifdef DEBUG
 #define _PURE_
+#else
+#define _PURE_ pure
+#endif
+
+#define COMMA ,
+#ifdef NO_DEFAULT_INT
+#define _MAYBE_(x)
+#else
+#define _MAYBE_(x) x
 #endif
 
 !***********************************************************************************************
@@ -19,7 +26,7 @@ implicit none
 
    private
 
-   public :: bitfield_t, bitfield_check, bitfield_size
+   public :: bitfield_t, bitfield_check, bitfield_size_t
    public :: assignment(=), operator(==), operator(/=)
    public :: operator(.not.), operator(.and.), operator(.or.)
    public :: operator(.eqv.), operator(.neqv.)
@@ -28,7 +35,7 @@ implicit none
 
    integer, parameter :: k0 = kind(0)
    integer, parameter :: ik = selected_int_kind(r=18)
-   integer, parameter :: sk = c_size_t, bitfield_size = sk
+   integer, parameter :: sk = c_size_t, bitfield_size_t = sk
    integer, parameter :: l = bit_size(0_ik)
    integer, parameter :: l2l = nint(log(real(l))/log(2.0))
    integer, parameter :: ll = 64*l
@@ -53,19 +60,19 @@ implicit none
       procedure :: allocate2_k0 => b_allocate2
       procedure :: allocate2_sk => b_allocate2_sk
       procedure :: allocate3    => b_allocate3
-      generic, public :: allocate => allocate1_k0, allocate1_sk, &
-                                     allocate2_k0, allocate2_sk, &
-                                     allocate3
+      generic, public :: allocate => _MAYBE_(allocate1_k0 COMMA) allocate1_sk, &
+                                     _MAYBE_(allocate2_k0 COMMA) allocate2_sk, &
+                                     allocate3 
       procedure, public :: deallocate => b_deallocate
       procedure, public :: allocated => b_allocated
       
       procedure :: resize_k0 => b_resize
       procedure :: resize_sk => b_resize_sk
-      generic, public :: resize => resize_k0, resize_sk
+      generic, public :: resize => _MAYBE_(resize_k0 COMMA) resize_sk
       procedure :: recap0    => b_recap0
       procedure :: recap1_k0 => b_recap1
       procedure :: recap1_sk => b_recap1_sk
-      generic, public :: recap => recap0, recap1_k0, recap1_sk
+      generic, public :: recap => recap0, _MAYBE_(recap1_k0 COMMA) recap1_sk
       procedure, public :: set_dynamic_capacity => b_set_dynamic_capacity
       
       procedure :: append_b => b_append_b
@@ -76,7 +83,7 @@ implicit none
       procedure :: drop0 => b_drop0
       procedure :: drop_k0 => b_drop
       procedure :: drop_sk => b_drop_sk
-      generic, public :: drop => drop_k0, drop_sk
+      generic, public :: drop => _MAYBE_(drop_k0 COMMA) drop_sk
    
       procedure, public :: getsize => b_getsize
       procedure, public :: getcapacity => b_getcapacity
@@ -84,64 +91,67 @@ implicit none
       procedure, public :: getub => b_getub
       procedure :: setlb_k0 => b_setlb
       procedure :: setlb_sk => b_setlb_sk
-      generic, public :: setlb => setlb_k0, setlb_sk
+      generic, public :: setlb => _MAYBE_(setlb_k0 COMMA) setlb_sk
       procedure :: setub_k0 => b_setub
       procedure :: setub_sk => b_setub_sk
       generic, public :: setub => setub_k0, setub_sk
    
-      procedure :: set0 => b_set0
+      procedure :: set0_k0 => b_set0
       procedure :: set0_sk => b_set0_sk
       procedure :: setall0 => b_setall0
-      procedure :: setrange0 => b_setrange0
+      procedure :: setrange0_k0 => b_setrange0
       procedure :: setrange0_sk => b_setrange0_sk
       procedure :: setall1 => b_setall1
-      procedure :: setrange1 => b_setrange1
+      procedure :: setrange1_k0 => b_setrange1
       procedure :: setrange1_sk => b_setrange1_sk
-      generic, public:: set => set0, setall0, setall1, setrange0, setrange1, &
-                               set0_sk, setrange0_sk, setrange1_sk
+      generic, public:: set => _MAYBE_(set0_k0 COMMA) set0_sk, setall0, setall1, &
+                               _MAYBE_(setrange0_k0 COMMA) setrange0_sk,         &
+                               _MAYBE_(setrange1_k0 COMMA) setrange1_sk
       
-      procedure :: get0 => b_get0
+      procedure :: get0_k0 => b_get0
       procedure :: get0_sk => b_get0_sk
       procedure :: getall => b_getall
-      procedure :: getrange => b_getrange
+      procedure :: getrange_k0 => b_getrange
       procedure :: getrange_sk => b_getrange_sk
-      generic, public :: get => get0, getall, getrange, get0_sk, getrange_sk
+      generic, public :: get => _MAYBE_(get0_k0 COMMA) get0_sk, getall, &
+                                _MAYBE_(getrange_k0 COMMA) getrange_sk
    
-      procedure :: fget0 => b_fget0
+      procedure :: fget0_k0 => b_fget0
       procedure :: fget0_sk => b_fget0_sk
       procedure :: fgetall => b_fgetall
-      procedure :: fgetrange => b_fgetrange
+      procedure :: fgetrange_k0 => b_fgetrange
       procedure :: fgetrange_sk => b_fgetrange_sk
-      generic, public :: fget => fget0, fgetall, fgetrange, fget0_sk, fgetrange_sk
+      generic, public :: fget => _MAYBE_(fget0_k0 COMMA) fget0_sk, fgetall, &
+                                 _MAYBE_(fgetrange_k0 COMMA) fgetrange_sk
    
       procedure :: countall => b_countall
-      procedure :: countrange => b_countrange
+      procedure :: countrange_k0 => b_countrange
       procedure :: countrange_sk => b_countrange_sk
-      generic, public :: count => countall, countrange, countrange_sk
+      generic, public :: count => countall, _MAYBE_(countrange_k0 COMMA) countrange_sk
    
       procedure :: allall => b_allall
-      procedure :: allrange => b_allrange
+      procedure :: allrange_k0 => b_allrange
       procedure :: allrange_sk => b_allrange_sk
-      generic, public  :: all => allall, allrange, allrange_sk
+      generic, public  :: all => allall, _MAYBE_(allrange_k0 COMMA) allrange_sk
       procedure :: anyall => b_anyall
-      procedure :: anyrange => b_anyrange
+      procedure :: anyrange_k0 => b_anyrange
       procedure :: anyrange_sk => b_anyrange_sk
-      generic, public :: any => anyall, anyrange, anyrange_sk
+      generic, public :: any => anyall, _MAYBE_(anyrange_k0 COMMA) anyrange_sk
    
       procedure :: extract_k0 => b_extract
       procedure :: extract_sk => b_extract_sk
-      generic, public :: extract => extract_k0, extract_sk
+      generic, public :: extract => _MAYBE_(extract_k0 COMMA) extract_sk
       procedure :: fextract_k0 => b_fextract
       procedure :: fextract_sk => b_fextract_sk
-      generic, public :: fextract => fextract_k0, fextract_sk
+      generic, public :: fextract => _MAYBE_(fextract_k0 COMMA) fextract_sk
       procedure :: replace_k0 => b_replace   
       procedure :: replace_sk => b_replace_sk 
-      generic, public :: replace => replace_k0, replace_sk
+      generic, public :: replace => _MAYBE_(replace_k0 COMMA) replace_sk
       
       procedure :: notall => b_notall
       procedure :: notrange_k0 => b_notrange
       procedure :: notrange_sk => b_notrange_sk
-      generic, public :: not => notall, notrange_k0, notrange_sk
+      generic, public :: not => notall, _MAYBE_(notrange_k0 COMMA) notrange_sk
    end type
    
    type kwe_t
@@ -1640,7 +1650,7 @@ contains
       f1 = "(B" // trim(str) // ")"   ! f1 = "(B64)"
       f2 = "(A" // trim(str) // ")"   ! f2 = "(A64)"
       
-      if (.not.b_allocated( this)) call this%allocate( 0 )
+      if (.not.b_allocated( this)) call b_allocate1_sk( this, 0_sk )
       c0 = this%getcapacity()
       iostat = 0
       do while (iostat == 0)
