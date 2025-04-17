@@ -2,7 +2,7 @@
 
 Beta version
 
-Implementation of a 1-bit logical array, stored in an integer array under 
+Implementation of a 1-bit logical pool, stored in an integer array under 
 the hood. Not cpu-efficient at all, but memory efficient. Main features:
 - Dynamically resizable array
 - Many operations can be applied on array sections, with a stride.
@@ -57,21 +57,22 @@ subroutine b%allocate( [source] [, capacity] )
     integer[(sk)], intent(in) :: capacity
     type(bitfield_t) :: mold, source
 ```
-Allocates an array of `n`, or of `(ub-lb+1)` bits, or of the same shape as `mold` or as `source`. 
+Allocates a (hidden) pool of `n`, or of `(ub-lb+1)` bits, or of the same shape 
+as `mold` or as `source`. 
 - If `source` is coded, the content of `source` is copied to `b`.
 - If `capacity` is coded, `capacity` bits are actually reserved, allowing further 
-  increase of the size without having to reallocate and copy the data. If `capacity` is
+  increase of the size without having to reallocate and copy the bits. If `capacity` is
   smaller than the needed size, it is ignored.
 
 ```
 subroutine b%deallocate()
 ```
-Deallocates the array of bits. 
+Deallocates the pool of bits. 
 
 ```
 logical function b%allocated()
 ```
-Returns .true. iif `b` is allocated
+Returns .true. iif `b` has an allocated pool of bits
 
 ```
 integer(sk) function b%getsize()
@@ -107,8 +108,8 @@ subroutine b%resize( n [, keep])
     integer[(sk)], intent(in) :: n
     logical, intent(in) :: keep
 ```
-Dynamically resizes the array by giving new lower and upper bounds. No reallocation is 
-needed if the new size is smaller or equal to the current capacity.
+Dynamically resizes the pool of bits by giving new lower and upper bounds. 
+No reallocation is needed if the new size is smaller or equal to the current capacity.
 - the lower bound is preserved (unless `n=0`, in which case the lower bound is reset to 1)
 - if `keep` is `.true.` (which is the default), the content of the array is preserved in 
   any case (otherwise it can be lost in case of reallocation).
@@ -157,29 +158,24 @@ logical :: bool
 
 b = bool0                     ! efficient
 ```
-`b` must be allocated beforehand
+`b%allocated()` must be equal to `.true.` beforehand
 
 ```
 type(bitfield_t) :: b
 logical, allocatable :: bool(:)
 
-b = bool                      ! not efficient
+b = bool     ! (1)     not efficient
+bool = b     ! (2)     not efficient
 ```
-`b` gets the shape (including the bounds) and values of `bool(:)`.
-- if `b` was allocated, it is first deallocated
-- this assignment won't work if `bool(:)` is not an allocatable array
-- this assignment is not CPU efficient
-
-```
-type(bitfield_t) :: b
-logical, allocatable :: bool(:)
-
-bool = b                      ! not efficient
-```
-`bool(:)` gets the shape (including the bounds) and values of `b`
-- if `bool(:)` was allocated, it is first deallocated
-- this assignment won't work if `bool(:)` is not an allocatable array
-- this assignment is not CPU efficient
+(1) The pool of bits in `b` gets the shape (including the bounds) and values of `bool(:)`.
+- if `b%allocated()` is `.true.` beforehand and if the sizes differ, then 
+  the pool of bits is first deallocated
+(2) `bool(:)` gets the shape (including the bounds) and values of the pool of bits in `b`
+- if `bool(:)` is allocated beforehand and if the sizes differ, then it is first 
+  deallocated
+(1) & (2)
+- these assignments won't work if `bool(:)` is not an allocatable array
+- these assignments are not CPU efficient
 
 
 ### bit manipulations
