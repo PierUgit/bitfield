@@ -169,10 +169,12 @@ bool = b     ! (2)     not efficient
 ```
 (1) The pool of bits in `b` gets the shape (including the bounds) and values of `bool(:)`.
 - if `b%allocated()` is `.true.` beforehand and if the sizes differ, then 
-  the pool of bits is first deallocated
+  the pool of bits is first deallocated  
+
 (2) `bool(:)` gets the shape (including the bounds) and values of the pool of bits in `b`
 - if `bool(:)` is allocated beforehand and if the sizes differ, then it is first 
   deallocated
+  
 (1) & (2)
 - these assignments won't work if `bool(:)` is not an allocatable array
 - these assignments are not CPU efficient
